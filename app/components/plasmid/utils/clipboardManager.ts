@@ -9,9 +9,9 @@ export class CircularClipboardManager implements ClipboardManager {
     constructor(private onCopyComplete?: () => void) {}
 
     private getSequenceSegment(sequence: string, start: number, end: number, length: number): string {
-        // Normalize positions to be 0-based
-        const startIndex = start - 1;
-        const endIndex = end - 1;
+        // Use length parameter to handle circular sequences
+        const startIndex = (start - 1) % length;
+        const endIndex = (end - 1) % length;
 
         if (startIndex <= endIndex) {
             return sequence.substring(startIndex, endIndex + 1);

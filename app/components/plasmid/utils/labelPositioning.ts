@@ -20,9 +20,9 @@ export class CircularLabelPositioner implements LabelPositioner {
             if (f.id === feature.id) return false;
 
             // Handle circular plasmid wrapping
-            let start1 = feature.start;
+            const start1 = feature.start;
             let end1 = feature.end;
-            let start2 = f.start;
+            const start2 = f.start;
             let end2 = f.end;
 
             // Normalize positions for circular comparison
@@ -50,9 +50,9 @@ export class CircularLabelPositioner implements LabelPositioner {
                 : (plasmidLength - f.start) + f.end;
 
             // Check if this feature is fully contained within the other feature
-            let start1 = feature.start;
+            const start1 = feature.start;
             let end1 = feature.end;
-            let start2 = f.start;
+            const start2 = f.start;
             let end2 = f.end;
 
             // Normalize positions for circular comparison

@@ -30,9 +30,9 @@ export class CircularGeometry implements ViewerGeometry {
         return pos === length ? 0 : pos;
     }
 
-    createFeaturePath(startAngle: number, endAngle: number, radius: number, isComplement: boolean): string {
+    createFeaturePath(startAngle: number, endAngle: number, radius: number, _isComplement: boolean): string {
         // Normalize angles
-        let actualStartAngle = startAngle;
+        const actualStartAngle = startAngle;
         let actualEndAngle = endAngle;
         if (actualEndAngle < actualStartAngle) {
             actualEndAngle += TWO_PI;
@@ -72,4 +72,24 @@ export class CircularGeometry implements ViewerGeometry {
 
         return `M ${startPoint.x} ${startPoint.y} A ${radius} ${radius} 0 ${largeArc} ${sweep} ${endPoint.x} ${endPoint.y}`;
     }
-} 
+}
+
+export const createArrowPath = (angle: number, radius: number): string => {
+    const arrowLength = PLASMID_CONSTANTS.ARROW_HEAD_LENGTH;
+    const arrowWidth = PLASMID_CONSTANTS.ARROW_HEAD_WIDTH;
+    
+    const point = angleToCoords(angle, radius);
+    const tipPoint = angleToCoords(angle, radius + arrowLength);
+    
+    const leftPoint = {
+        x: tipPoint.x - Math.sin(angle) * arrowWidth,
+        y: tipPoint.y + Math.cos(angle) * arrowWidth
+    };
+    
+    const rightPoint = {
+        x: tipPoint.x + Math.sin(angle) * arrowWidth,
+        y: tipPoint.y - Math.cos(angle) * arrowWidth
+    };
+    
+    return `M ${point.x} ${point.y} L ${tipPoint.x} ${tipPoint.y} L ${leftPoint.x} ${leftPoint.y} M ${tipPoint.x} ${tipPoint.y} L ${rightPoint.x} ${rightPoint.y}`;
+}; 

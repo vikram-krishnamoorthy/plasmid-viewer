@@ -1,15 +1,13 @@
 'use client'
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import _ from 'lodash';
 import { Button } from "@/components/ui/button";
 import { PlasmidBackbone } from './plasmid/PlasmidBackbone';
 import { PlasmidFeature } from './plasmid/PlasmidFeature';
 import { SelectionHighlight } from './plasmid/SelectionHighlight';
 import { PlasmidInfo } from './plasmid/PlasmidInfo';
-import type { Feature, SelectedRegion, LabelPosition } from './plasmid/types';
 import { PLASMID_CONSTANTS } from './plasmid/utils/constants';
 import { usePlasmidViewer } from '../hooks/usePlasmidViewer';
 
@@ -26,7 +24,7 @@ const PlasmidViewer: React.FC = () => {
         featureTypes,
         geometry,
         labelPositioner,
-        selectionHandler,
+        selectionHandler: _selectionHandler,
         clipboardManager,
         colorManager,
         handleFileUpload,

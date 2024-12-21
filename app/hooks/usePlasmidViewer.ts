@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import _ from 'lodash';
 import type { Feature, SelectedRegion } from '../components/plasmid/types';
 import { PLASMID_CONSTANTS } from '../components/plasmid/utils/constants';
@@ -21,7 +21,7 @@ export function usePlasmidViewer() {
     const [visibleFeatureTypes, setVisibleFeatureTypes] = useState<Set<string>>(new Set());
     const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [featureColors, setFeatureColors] = useState<Record<string, string>>({});
+    const [_featureColors, setFeatureColors] = useState<Record<string, string>>({});
 
     // Services
     const geometry = useMemo(() => new CircularGeometry(PLASMID_CONSTANTS), []);
@@ -38,22 +38,15 @@ export function usePlasmidViewer() {
     // Derived state
     const featureTypes = _.uniq(features.map(f => f.type));
 
-    // Update colors when features change
-    useEffect(() => {
-        if (features.length > 0) {
-            const colorMap = colorManager.generateColors(features);
-            setFeatureColors(colorMap);
-            setFeatures(features => features.map(feature => ({
-                ...feature,
-                color: colorMap[feature.type] || '#BDC3C7'
-            })));
-        }
-    }, [features.length, colorManager]);
-
     const updatePlasmidData = (result: SequenceInputResult) => {
         setPlasmidName(result.name);
         setPlasmidLength(result.length);
-        setFeatures(result.features);
+        const colorMap = colorManager.generateColors(result.features);
+        setFeatureColors(colorMap);
+        setFeatures(result.features.map(feature => ({
+            ...feature,
+            color: colorMap[feature.type] || '#BDC3C7'
+        })));
         setDnaSequence(result.sequence);
         setVisibleFeatureTypes(new Set(_.uniq(result.features.map(f => f.type))));
     };

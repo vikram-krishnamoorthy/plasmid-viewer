@@ -1,6 +1,5 @@
 import { ViewerGeometry } from './geometry';
 import { SelectedRegion } from '../types';
-import type { Point } from './constants';
 
 export interface SelectionHandler {
     mouseToPosition(e: React.MouseEvent<SVGSVGElement>, svg: SVGSVGElement | null): number;

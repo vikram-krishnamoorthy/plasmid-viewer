@@ -5,14 +5,14 @@ interface PlasmidArrowProps {
     angle: number;
     radius: number;
     color: string;
-    isComplement?: boolean;
+    _isComplement: boolean;
 }
 
 export const PlasmidArrow: React.FC<PlasmidArrowProps> = ({
     angle,
     radius,
     color,
-    isComplement = false
+    _isComplement = false
 }) => {
     return (
         <path

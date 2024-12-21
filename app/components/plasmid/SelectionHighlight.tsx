@@ -1,5 +1,4 @@
 import React from 'react';
-import { SelectedRegion } from './types';
 
 interface SelectionHighlightProps {
     selectionPath: string;
