@@ -1,82 +1,75 @@
-import { PLASMID_CONSTANTS, TWO_PI } from './constants';
-const { CENTER, PATH_WIDTH, ARROW_HEAD_LENGTH, ARROW_HEAD_WIDTH } = PLASMID_CONSTANTS;
+import {
+    PLASMID_CONSTANTS,
+    TWO_PI,
+    coordsToAngle,
+    angleToCoords,
+    type Point
+} from './constants';
 
-export interface Point {
-    x: number;
-    y: number;
+export interface ViewerGeometry {
+    coordsToPosition: (pos: number, length: number) => Point;
+    positionToCoords: (position: Point, length: number) => number;
+    createFeaturePath: (startAngle: number, endAngle: number, radius: number, isComplement: boolean) => string;
+    createSelectionPath: (start: number, end: number, radius: number, length: number) => string;
 }
 
-export const coordsToAngle = (pos: number, plasmidLength: number): number => {
-    return (pos / plasmidLength) * TWO_PI - Math.PI / 2;
-};
+export class CircularGeometry implements ViewerGeometry {
+    constructor(private readonly constants: typeof PLASMID_CONSTANTS) { }
 
-export const angleToCoords = (angle: number, radius: number): Point => {
-    return {
-        x: CENTER + radius * Math.cos(angle),
-        y: CENTER + radius * Math.sin(angle)
-    };
-};
-
-export const normalizeAngle = (angle: number): number => {
-    return (angle + TWO_PI) % TWO_PI;
-};
-
-export const createFeaturePath = (
-    startAngle: number,
-    endAngle: number,
-    radius: number,
-    isComplement: boolean
-): string => {
-    // Normalize angles
-    let actualStartAngle = startAngle;
-    let actualEndAngle = endAngle;
-    if (actualEndAngle < actualStartAngle) {
-        actualEndAngle += TWO_PI;
+    coordsToPosition(pos: number, length: number): Point {
+        const angle = coordsToAngle(pos, length);
+        return angleToCoords(angle, this.constants.BACKBONE_RADIUS);
     }
 
-    // Calculate path radii
-    const outerRadius = radius + PATH_WIDTH / 2;
-    const innerRadius = radius - PATH_WIDTH / 2;
+    positionToCoords(position: Point, length: number): number {
+        const dx = position.x - this.constants.CENTER;
+        const dy = position.y - this.constants.CENTER;
+        const angle = Math.atan2(dy, dx) + Math.PI / 2;
+        const normalizedAngle = (angle + TWO_PI) % TWO_PI;
+        const pos = Math.round(normalizedAngle * length / TWO_PI);
+        return pos === length ? 0 : pos;
+    }
 
-    // Calculate main arc points
-    const outerStart = angleToCoords(actualStartAngle, outerRadius);
-    const outerEnd = angleToCoords(actualEndAngle, outerRadius);
-    const innerStart = angleToCoords(actualStartAngle, innerRadius);
-    const innerEnd = angleToCoords(actualEndAngle, innerRadius);
+    createFeaturePath(startAngle: number, endAngle: number, radius: number, isComplement: boolean): string {
+        // Normalize angles
+        let actualStartAngle = startAngle;
+        let actualEndAngle = endAngle;
+        if (actualEndAngle < actualStartAngle) {
+            actualEndAngle += TWO_PI;
+        }
 
-    const largeArc = (actualEndAngle - actualStartAngle) > Math.PI ? 1 : 0;
+        // Calculate path radii
+        const outerRadius = radius + PLASMID_CONSTANTS.PATH_WIDTH / 2;
+        const innerRadius = radius - PLASMID_CONSTANTS.PATH_WIDTH / 2;
 
-    // Simple path without arrow head
-    return `M ${outerStart.x} ${outerStart.y}
-            A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${outerEnd.x} ${outerEnd.y}
-            L ${innerEnd.x} ${innerEnd.y}
-            A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${innerStart.x} ${innerStart.y}
-            Z`;
-};
+        // Calculate main arc points
+        const outerStart = angleToCoords(actualStartAngle, outerRadius);
+        const outerEnd = angleToCoords(actualEndAngle, outerRadius);
+        const innerStart = angleToCoords(actualStartAngle, innerRadius);
+        const innerEnd = angleToCoords(actualEndAngle, innerRadius);
 
-export const createArrowPath = (angle: number, radius: number): string => {
-    // Example arrow shape: a small triangle
-    const { ARROW_HEAD_LENGTH, ARROW_HEAD_WIDTH, CENTER } = PLASMID_CONSTANTS;
+        const largeArc = (actualEndAngle - actualStartAngle) > Math.PI ? 1 : 0;
 
-    // Tip of the arrow
-    const arrowTip = angleToCoords(angle, radius + ARROW_HEAD_LENGTH);
-    // Base center of the arrow
-    const arrowBase = angleToCoords(angle, radius);
-    // Perpendicular angle for left/right edges
-    const perpAngle = angle + Math.PI / 2;
+        return `M ${outerStart.x} ${outerStart.y}
+                A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${outerEnd.x} ${outerEnd.y}
+                L ${innerEnd.x} ${innerEnd.y}
+                A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${innerStart.x} ${innerStart.y}
+                Z`;
+    }
 
-    const arrowLeft = {
-        x: arrowBase.x + (ARROW_HEAD_WIDTH / 2) * Math.cos(perpAngle),
-        y: arrowBase.y + (ARROW_HEAD_WIDTH / 2) * Math.sin(perpAngle),
-    };
-    const arrowRight = {
-        x: arrowBase.x - (ARROW_HEAD_WIDTH / 2) * Math.cos(perpAngle),
-        y: arrowBase.y - (ARROW_HEAD_WIDTH / 2) * Math.sin(perpAngle),
-    };
+    createSelectionPath(start: number, end: number, radius: number, length: number): string {
+        const startAngle = coordsToAngle(start, length);
+        const endAngle = coordsToAngle(end, length);
 
-    // Draw a triangle from left edge -> tip -> right edge -> back to left
-    return `M ${arrowLeft.x} ${arrowLeft.y}
-            L ${arrowTip.x} ${arrowTip.y}
-            L ${arrowRight.x} ${arrowRight.y}
-            Z`;
-}; 
+        let angleDiff = endAngle - startAngle;
+        if (angleDiff < 0) angleDiff += TWO_PI;
+
+        const largeArc = angleDiff > Math.PI ? 1 : 0;
+        const sweep = 1;
+
+        const startPoint = angleToCoords(startAngle, radius);
+        const endPoint = angleToCoords(endAngle, radius);
+
+        return `M ${startPoint.x} ${startPoint.y} A ${radius} ${radius} 0 ${largeArc} ${sweep} ${endPoint.x} ${endPoint.y}`;
+    }
+} 

@@ -1,6 +1,8 @@
 import React from 'react';
-import { Feature, LabelPosition } from './types';
-import { createFeaturePath } from './utils/geometry';
+import { LabelPosition } from './types';
+import { coordsToAngle } from './utils/constants';
+import { CircularGeometry } from './utils/geometry';
+import { PLASMID_CONSTANTS } from './utils/constants';
 
 interface PlasmidFeatureProps {
     labelPosition: LabelPosition;
@@ -8,30 +10,33 @@ interface PlasmidFeatureProps {
     onClick: () => void;
 }
 
+// Create a singleton instance for generating paths
+const geometry = new CircularGeometry(PLASMID_CONSTANTS);
+
 export const PlasmidFeature: React.FC<PlasmidFeatureProps> = ({
     labelPosition,
     isSelected,
     onClick
 }) => {
-    const { 
-        feature, 
-        featureX, 
-        featureY, 
+    const {
+        feature,
+        featureX,
+        featureY,
         radialX,
         radialY,
-        labelX, 
-        labelY, 
-        radius, 
-        plasmidLength 
+        labelX,
+        labelY,
+        radius,
+        plasmidLength
     } = labelPosition;
 
-    const startAngle = (feature.start / plasmidLength) * 2 * Math.PI - Math.PI / 2;
-    const endAngle = (feature.end / plasmidLength) * 2 * Math.PI - Math.PI / 2;
+    const startAngle = coordsToAngle(feature.start, plasmidLength);
+    const endAngle = coordsToAngle(feature.end, plasmidLength);
 
     return (
         <g onClick={onClick} style={{ cursor: 'pointer' }}>
             <path
-                d={createFeaturePath(startAngle, endAngle, radius, feature.complement)}
+                d={geometry.createFeaturePath(startAngle, endAngle, radius, feature.complement)}
                 fill={feature.color}
                 stroke="none"
                 className="transition-opacity duration-200"
