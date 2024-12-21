@@ -5,36 +5,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import _ from 'lodash';
 import { Button } from "@/components/ui/button";
-
-interface Feature {
-    type: string;
-    start: number;
-    end: number;
-    complement: boolean;
-    label: string;
-    color: string;
-}
-
-interface SelectedRegion {
-    start: number;
-    end: number;
-}
-
-interface LabelPosition {
-    feature: Feature;
-    midAngle: number;
-    featureX: number;
-    featureY: number;
-    labelX: number;
-    labelY: number;
-    rotation: number;
-    textAnchor: string;
-}
-
-interface FeaturePath {
-    path: string;
-    arrow: string;
-}
+import { PlasmidBackbone } from './plasmid/PlasmidBackbone';
+import { PlasmidFeature } from './plasmid/PlasmidFeature';
+import { SelectionHighlight } from './plasmid/SelectionHighlight';
+import { PlasmidInfo } from './plasmid/PlasmidInfo';
+import type { Feature, SelectedRegion, LabelPosition, FeaturePath } from './plasmid/types';
 
 const PlasmidViewer: React.FC = () => {
     const [sequence, setSequence] = useState<string>('');
@@ -207,7 +182,7 @@ const PlasmidViewer: React.FC = () => {
     const handleMouseMove = (e: React.MouseEvent): void => {
         if (!isDragging || dragStart === null) return;
         const currentPos = mouseToCirclePosition(e);
-        
+
         // Always set start and end based on actual positions
         setSelectedRegion({
             start: dragStart,
@@ -233,18 +208,18 @@ const PlasmidViewer: React.FC = () => {
             if (selectedRegion && dnaSequence) {
                 e.preventDefault();
                 let seq = '';
-                
+
                 // Normalize positions to be within sequence length
                 const start = selectedRegion.start - 1;
                 const end = selectedRegion.end - 1;
-                
+
                 if (start <= end) {
                     seq = dnaSequence.substring(start, end + 1);
                 } else {
                     // Wrap around the origin
                     seq = dnaSequence.substring(start) + dnaSequence.substring(0, end + 1);
                 }
-                
+
                 e.clipboardData?.setData('text/plain', seq);
 
                 // Visual feedback
@@ -279,15 +254,15 @@ const PlasmidViewer: React.FC = () => {
         const radius = 200;
         const start = angleToCoords(startAngle, radius);
         const end = angleToCoords(endAngle, radius);
-        
+
         // Determine if we need to draw the arc clockwise or counterclockwise
         let largeArc = 0;
         let sweep = 1;
-        
+
         // Calculate the angular distance between start and end
         let angleDiff = endAngle - startAngle;
         if (angleDiff < 0) angleDiff += 2 * Math.PI;
-        
+
         if (angleDiff > Math.PI) {
             largeArc = 1;
         }
@@ -386,7 +361,7 @@ const PlasmidViewer: React.FC = () => {
 
         setIsLoading(true);
         const reader = new FileReader();
-        
+
         reader.onload = (event) => {
             try {
                 const content = event.target?.result as string;
@@ -482,151 +457,30 @@ const PlasmidViewer: React.FC = () => {
                         onMouseUp={handleMouseUp}
                         onMouseLeave={handleMouseUp}
                     >
-                        {/* Backbone circle */}
-                        <circle
-                            cx="300"
-                            cy="300"
-                            r="200"
-                            fill="none"
-                            stroke="#333"
-                            strokeWidth="1"
-                        />
+                        <PlasmidBackbone plasmidLength={plasmidLength} />
 
-                        {/* Selection highlight */}
                         {selectedRegion && (
-                            <path
-                                d={getSelectionPath()}
-                                fill="none"
-                                stroke="#FFD700"
-                                strokeWidth="8"
-                                opacity="0.5"
-                            />
+                            <SelectionHighlight selectionPath={getSelectionPath()} />
                         )}
 
-                        {/* Base pair markers */}
-                        {Array.from({ length: 12 }).map((_, i) => {
-                            const angle = (i / 12) * 2 * Math.PI - Math.PI / 2;
-                            const bp = Math.round((i / 12) * plasmidLength);
-                            return (
-                                <g key={i}>
-                                    <line
-                                        x1={300 + 195 * Math.cos(angle)}
-                                        y1={300 + 195 * Math.sin(angle)}
-                                        x2={300 + 205 * Math.cos(angle)}
-                                        y2={300 + 205 * Math.sin(angle)}
-                                        stroke="#333"
-                                        strokeWidth="1"
-                                    />
-                                    <text
-                                        x={300 + 220 * Math.cos(angle)}
-                                        y={300 + 220 * Math.sin(angle)}
-                                        textAnchor="middle"
-                                        dominantBaseline="middle"
-                                        fontSize="10"
-                                        fill="#666"
-                                    >
-                                        {bp.toLocaleString()}
-                                    </text>
-                                </g>
-                            );
-                        })}
-
-                        {/* Features */}
-                        {calculateLabelPositions().map(({
-                            feature,
-                            midAngle,
-                            featureX,
-                            featureY,
-                            labelX,
-                            labelY,
-                            rotation,
-                            textAnchor
-                        }, index) => {
-                            const radius = getFeatureRadius(feature, index);
-                            const { path, arrow } = getFeaturePath(feature, radius);
+                        {calculateLabelPositions().map((labelPosition, index) => {
+                            const radius = getFeatureRadius(labelPosition.feature, index);
+                            const { path, arrow } = getFeaturePath(labelPosition.feature, radius);
 
                             return (
-                                <g
+                                <PlasmidFeature
                                     key={index}
-                                    onClick={() => handleFeatureClick(feature)}
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    {/* Feature arc */}
-                                    <path
-                                        d={path}
-                                        fill="none"
-                                        stroke={feature.color}
-                                        strokeWidth="6"
-                                        strokeLinecap="round"
-                                        className="transition-opacity duration-200"
-                                        opacity={selectedRegion &&
-                                            !(selectedRegion.start === feature.start &&
-                                                selectedRegion.end === feature.end) ? "0.3" : "1"}
-                                    />
-
-                                    {/* Direction arrow */}
-                                    <path
-                                        d={arrow}
-                                        fill="none"
-                                        stroke={feature.color}
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                    />
-
-                                    {feature.label && (
-                                        <>
-                                            {/* Label line */}
-                                            <line
-                                                x1={featureX}
-                                                y1={featureY}
-                                                x2={labelX}
-                                                y2={labelY}
-                                                stroke="#999"
-                                                strokeWidth="1"
-                                                strokeDasharray="2,2"
-                                            />
-
-                                            {/* Label text */}
-                                            <text
-                                                x={labelX}
-                                                y={labelY}
-                                                textAnchor={textAnchor}
-                                                dominantBaseline="middle"
-                                                transform={`rotate(${rotation}, ${labelX}, ${labelY})`}
-                                                fontSize="10"
-                                                fill="#333"
-                                            >
-                                                {feature.label}
-                                            </text>
-                                        </>
-                                    )}
-                                </g>
+                                    labelPosition={labelPosition}
+                                    path={path}
+                                    arrow={arrow}
+                                    isSelected={selectedRegion?.start === labelPosition.feature.start && 
+                                              selectedRegion?.end === labelPosition.feature.end}
+                                    onClick={() => handleFeatureClick(labelPosition.feature)}
+                                />
                             );
                         })}
 
-                        {/* Plasmid name and size */}
-                        <text
-                            x="300"
-                            y="290"
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                            fontSize="14"
-                            fontWeight="bold"
-                            fill="#333"
-                        >
-                            {plasmidName}
-                        </text>
-                        <text
-                            x="300"
-                            y="310"
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                            fontSize="12"
-                            fill="#666"
-                        >
-                            {plasmidLength ? `${plasmidLength.toLocaleString()} bp` : ''}
-                        </text>
+                        <PlasmidInfo name={plasmidName} length={plasmidLength} />
                     </svg>
                 </div>
 
