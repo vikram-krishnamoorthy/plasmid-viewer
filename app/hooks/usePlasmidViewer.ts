@@ -22,6 +22,7 @@ export function usePlasmidViewer() {
     const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [_featureColors, setFeatureColors] = useState<Record<string, string>>({});
+    const [showLabels, setShowLabels] = useState<boolean>(false);
 
     // Services
     const geometry = useMemo(() => new CircularGeometry(PLASMID_CONSTANTS), []);
@@ -48,7 +49,13 @@ export function usePlasmidViewer() {
             color: colorMap[feature.type] || '#BDC3C7'
         })));
         setDnaSequence(result.sequence);
-        setVisibleFeatureTypes(new Set(_.uniq(result.features.map(f => f.type))));
+        
+        // Set visible feature types, excluding 'source' by default
+        const newFeatureTypes = new Set(
+            _.uniq(result.features.map(f => f.type))
+                .filter(type => type.toLowerCase() !== 'source')
+        );
+        setVisibleFeatureTypes(newFeatureTypes);
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -135,7 +142,9 @@ export function usePlasmidViewer() {
         plasmidLength,
         dnaSequence,
         visibleFeatureTypes,
+        setVisibleFeatureTypes,
         selectedRegion,
+        setSelectedRegion,
         isLoading,
         featureTypes,
         // Services
@@ -152,5 +161,7 @@ export function usePlasmidViewer() {
         handleMouseDown,
         handleMouseMove,
         handleMouseUp,
+        showLabels,
+        setShowLabels,
     };
 } 

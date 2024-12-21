@@ -6,7 +6,7 @@ interface PlasmidBackboneProps {
 
 export const PlasmidBackbone: React.FC<PlasmidBackboneProps> = ({ plasmidLength }) => {
     return (
-        <>
+        <g style={{ userSelect: 'none' }}>
             {/* Base circle */}
             <circle
                 cx="300"
@@ -38,12 +38,13 @@ export const PlasmidBackbone: React.FC<PlasmidBackboneProps> = ({ plasmidLength 
                             dominantBaseline="middle"
                             fontSize="10"
                             fill="#666"
+                            style={{ pointerEvents: 'none' }}
                         >
                             {bp.toLocaleString()}
                         </text>
                     </g>
                 );
             })}
-        </>
+        </g>
     );
 }; 

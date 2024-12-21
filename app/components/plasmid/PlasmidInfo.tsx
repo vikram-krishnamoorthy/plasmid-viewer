@@ -7,7 +7,7 @@ interface PlasmidInfoProps {
 
 export const PlasmidInfo: React.FC<PlasmidInfoProps> = ({ name, length }) => {
     return (
-        <>
+        <g style={{ userSelect: 'none' }}>
             <text
                 x="300"
                 y="290"
@@ -16,6 +16,7 @@ export const PlasmidInfo: React.FC<PlasmidInfoProps> = ({ name, length }) => {
                 fontSize="14"
                 fontWeight="bold"
                 fill="#333"
+                style={{ pointerEvents: 'none' }}
             >
                 {name}
             </text>
@@ -26,9 +27,10 @@ export const PlasmidInfo: React.FC<PlasmidInfoProps> = ({ name, length }) => {
                 dominantBaseline="middle"
                 fontSize="12"
                 fill="#666"
+                style={{ pointerEvents: 'none' }}
             >
                 {length ? `${length.toLocaleString()} bp` : ''}
             </text>
-        </>
+        </g>
     );
 }; 

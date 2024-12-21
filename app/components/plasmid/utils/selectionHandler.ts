@@ -43,10 +43,25 @@ export class CircularSelectionHandler implements SelectionHandler {
     handleSelectionMove(position: number): SelectedRegion | null {
         if (!this.isDragging || this.dragStart === null) return null;
 
-        this.currentSelection = {
-            start: this.dragStart,
-            end: position
-        };
+        const distance = Math.abs(position - this.dragStart);
+        const complementDistance = this.plasmidLength - distance;
+        
+        let start: number, end: number;
+        
+        if (distance <= complementDistance) {
+            start = Math.min(this.dragStart, position);
+            end = Math.max(this.dragStart, position);
+        } else {
+            if (position > this.dragStart) {
+                start = position;
+                end = this.dragStart;
+            } else {
+                start = this.dragStart;
+                end = position;
+            }
+        }
+
+        this.currentSelection = { start, end };
         this.onSelectionChange(this.currentSelection);
         return this.currentSelection;
     }

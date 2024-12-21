@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { SelectionHighlight } from './plasmid/SelectionHighlight';
 import { PlasmidInfo } from './plasmid/PlasmidInfo';
 import { PLASMID_CONSTANTS } from './plasmid/utils/constants';
 import { usePlasmidViewer } from '../hooks/usePlasmidViewer';
+import { LinearPlasmidViewer } from './plasmid/LinearPlasmidViewer';
 
 const PlasmidViewer: React.FC = () => {
     const {
@@ -19,7 +20,9 @@ const PlasmidViewer: React.FC = () => {
         plasmidLength,
         dnaSequence,
         visibleFeatureTypes,
+        setVisibleFeatureTypes,
         selectedRegion,
+        setSelectedRegion,
         isLoading,
         featureTypes,
         geometry,
@@ -34,6 +37,8 @@ const PlasmidViewer: React.FC = () => {
         handleMouseDown,
         handleMouseMove,
         handleMouseUp,
+        showLabels,
+        setShowLabels,
     } = usePlasmidViewer();
 
     const svgRef = useRef<SVGSVGElement>(null);
@@ -65,6 +70,18 @@ const PlasmidViewer: React.FC = () => {
             PLASMID_CONSTANTS.BACKBONE_RADIUS,
             plasmidLength
         );
+    };
+
+    const handleLinearViewerMouseDown = (position: number) => {
+        _selectionHandler.handleSelectionStart(position);
+    };
+
+    const handleLinearViewerMouseMove = (position: number) => {
+        if (!_selectionHandler.isSelecting()) return;
+        const newSelection = _selectionHandler.handleSelectionMove(position);
+        if (newSelection) {
+            setSelectedRegion(newSelection);
+        }
     };
 
     return (
@@ -101,33 +118,49 @@ const PlasmidViewer: React.FC = () => {
                     />
                 </div>
 
-                <div className="mb-4 flex flex-wrap gap-4">
-                    {featureTypes.map(type => (
-                        <div key={type} className="flex items-center space-x-2">
-                            <Checkbox
-                                id={`feature-${type}`}
-                                checked={visibleFeatureTypes.has(type)}
-                                onCheckedChange={(checked) => handleCheckboxChange(checked, type)}
-                                style={{
-                                    '--checkbox-color': colorManager.getFeatureColor(type)
-                                } as React.CSSProperties}
-                                className="data-[state=checked]:bg-[var(--checkbox-color)] data-[state=checked]:border-[var(--checkbox-color)]"
-                            />
-                            <label
-                                htmlFor={`feature-${type}`}
-                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                                {type}
-                            </label>
-                        </div>
-                    ))}
+                <div className="mb-4 flex items-center justify-between">
+                    <div className="flex flex-wrap gap-4">
+                        {featureTypes.map(type => (
+                            <div key={type} className="flex items-center space-x-2">
+                                <Checkbox
+                                    id={`feature-${type}`}
+                                    checked={visibleFeatureTypes.has(type)}
+                                    onCheckedChange={(checked) => handleCheckboxChange(checked, type)}
+                                    style={{
+                                        '--checkbox-color': colorManager.getFeatureColor(type)
+                                    } as React.CSSProperties}
+                                    className="data-[state=checked]:bg-[var(--checkbox-color)] data-[state=checked]:border-[var(--checkbox-color)]"
+                                />
+                                <label
+                                    htmlFor={`feature-${type}`}
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                    {type}
+                                </label>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Checkbox
+                            id="show-labels"
+                            checked={showLabels}
+                            onCheckedChange={(checked) => setShowLabels(!!checked)}
+                        />
+                        <label
+                            htmlFor="show-labels"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                            Show Labels
+                        </label>
+                    </div>
                 </div>
 
-                <div className="relative w-full aspect-square bg-white">
+                <div className="relative w-full aspect-square bg-white mb-8">
                     <svg
                         ref={svgRef}
                         viewBox="0 0 600 600"
-                        className="w-full h-full"
+                        className="w-full h-full select-none"
+                        style={{ userSelect: 'none' }}
                         onMouseDown={handleMouseDown}
                         onMouseMove={handleMouseMove}
                         onMouseUp={handleMouseUp}
@@ -147,12 +180,30 @@ const PlasmidViewer: React.FC = () => {
                                     isSelected={selectedRegion?.start === labelPosition.feature.start &&
                                         selectedRegion?.end === labelPosition.feature.end}
                                     onClick={() => handleFeatureClick(labelPosition.feature)}
+                                    showLabels={showLabels}
                                 />
                             ))}
 
                         <PlasmidInfo name={plasmidName} length={plasmidLength} />
                     </svg>
                 </div>
+
+                {plasmidLength > 0 && (
+                    <div className="relative w-full overflow-x-auto">
+                        <LinearPlasmidViewer
+                            features={features}
+                            plasmidLength={plasmidLength}
+                            visibleFeatureTypes={visibleFeatureTypes}
+                            selectedRegion={selectedRegion}
+                            colorManager={colorManager}
+                            onFeatureClick={handleFeatureClick}
+                            sequence={dnaSequence}
+                            onMouseDown={handleLinearViewerMouseDown}
+                            onMouseMove={handleLinearViewerMouseMove}
+                            onMouseUp={handleMouseUp}
+                        />
+                    </div>
+                )}
 
                 {selectedRegion && (
                     <div className="mt-4 p-4 bg-gray-50 rounded-md">

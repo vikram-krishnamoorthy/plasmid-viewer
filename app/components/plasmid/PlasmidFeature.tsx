@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { LabelPosition } from './types';
 import { coordsToAngle } from './utils/constants';
 import { CircularGeometry } from './utils/geometry';
@@ -8,6 +8,7 @@ interface PlasmidFeatureProps {
     labelPosition: LabelPosition;
     isSelected: boolean;
     onClick: () => void;
+    showLabels: boolean;
 }
 
 // Create a singleton instance for generating paths
@@ -16,8 +17,10 @@ const geometry = new CircularGeometry(PLASMID_CONSTANTS);
 export const PlasmidFeature: React.FC<PlasmidFeatureProps> = ({
     labelPosition,
     isSelected,
-    onClick
+    onClick,
+    showLabels
 }) => {
+    const [isHovered, setIsHovered] = useState(false);
     const {
         feature,
         featureX,
@@ -33,8 +36,15 @@ export const PlasmidFeature: React.FC<PlasmidFeatureProps> = ({
     const startAngle = coordsToAngle(feature.start, plasmidLength);
     const endAngle = coordsToAngle(feature.end, plasmidLength);
 
+    const shouldShowLabel = showLabels || isHovered;
+
     return (
-        <g onClick={onClick} style={{ cursor: 'pointer' }}>
+        <g
+            onClick={onClick}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+        >
             <path
                 d={geometry.createFeaturePath(startAngle, endAngle, radius, feature.complement)}
                 fill={feature.color}
@@ -43,7 +53,7 @@ export const PlasmidFeature: React.FC<PlasmidFeatureProps> = ({
                 opacity={!isSelected ? "1" : "0.3"}
             />
 
-            {feature.label && (
+            {feature.label && shouldShowLabel && (
                 <>
                     <path
                         d={`M ${featureX} ${featureY} L ${radialX} ${radialY} L ${labelX} ${labelY}`}
@@ -51,6 +61,8 @@ export const PlasmidFeature: React.FC<PlasmidFeatureProps> = ({
                         strokeWidth="1"
                         strokeDasharray="2,2"
                         fill="none"
+                        className="transition-opacity duration-200"
+                        opacity={showLabels ? "1" : "0.6"}
                     />
                     <text
                         x={labelX}
@@ -59,6 +71,9 @@ export const PlasmidFeature: React.FC<PlasmidFeatureProps> = ({
                         dominantBaseline="middle"
                         fontSize="10"
                         fill="#333"
+                        style={{ pointerEvents: 'none' }}
+                        className="transition-opacity duration-200"
+                        opacity={showLabels ? "1" : "0.8"}
                     >
                         {feature.label}
                     </text>
