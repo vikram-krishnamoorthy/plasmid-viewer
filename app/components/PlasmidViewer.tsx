@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -167,7 +169,7 @@ const PlasmidViewer: React.FC = () => {
         return (pos / plasmidLength) * 2 * Math.PI - Math.PI / 2;
     };
 
-    const angleToCoords = (angle: number, radius: number): {x: number, y: number} => {
+    const angleToCoords = (angle: number, radius: number): { x: number, y: number } => {
         return {
             x: 300 + radius * Math.cos(angle),
             y: 300 + radius * Math.sin(angle)
@@ -178,7 +180,7 @@ const PlasmidViewer: React.FC = () => {
     const mouseToCirclePosition = (e: React.MouseEvent): number => {
         const svg = svgRef.current;
         if (!svg) return 0;
-        
+
         const pt = svg.createSVGPoint();
         pt.x = e.clientX;
         pt.y = e.clientY;
@@ -188,7 +190,7 @@ const PlasmidViewer: React.FC = () => {
         const dy = svgP.y - 300;
         const angle = Math.atan2(dy, dx) + Math.PI / 2;
         const pos = Math.round(((angle + 2 * Math.PI) % (2 * Math.PI)) * plasmidLength / (2 * Math.PI));
-        return pos;
+        return pos === plasmidLength ? 0 : pos;
     };
 
     // Handle mouse events for selection
@@ -203,9 +205,11 @@ const PlasmidViewer: React.FC = () => {
     const handleMouseMove = (e: React.MouseEvent): void => {
         if (!isDragging || dragStart === null) return;
         const currentPos = mouseToCirclePosition(e);
+        
+        // Always set start and end based on actual positions
         setSelectedRegion({
-            start: Math.min(dragStart, currentPos),
-            end: Math.max(dragStart, currentPos)
+            start: dragStart,
+            end: currentPos
         });
     };
 
@@ -227,13 +231,18 @@ const PlasmidViewer: React.FC = () => {
             if (selectedRegion && dnaSequence) {
                 e.preventDefault();
                 let seq = '';
-                if (selectedRegion.start <= selectedRegion.end) {
-                    seq = dnaSequence.substring(selectedRegion.start - 1, selectedRegion.end);
+                
+                // Normalize positions to be within sequence length
+                const start = selectedRegion.start - 1;
+                const end = selectedRegion.end - 1;
+                
+                if (start <= end) {
+                    seq = dnaSequence.substring(start, end + 1);
                 } else {
                     // Wrap around the origin
-                    seq = dnaSequence.substring(selectedRegion.start - 1) +
-                        dnaSequence.substring(0, selectedRegion.end);
+                    seq = dnaSequence.substring(start) + dnaSequence.substring(0, end + 1);
                 }
+                
                 e.clipboardData?.setData('text/plain', seq);
 
                 // Visual feedback
@@ -268,9 +277,20 @@ const PlasmidViewer: React.FC = () => {
         const radius = 200;
         const start = angleToCoords(startAngle, radius);
         const end = angleToCoords(endAngle, radius);
-        const largeArc = endAngle - startAngle > Math.PI ? 1 : 0;
+        
+        // Determine if we need to draw the arc clockwise or counterclockwise
+        let largeArc = 0;
+        let sweep = 1;
+        
+        // Calculate the angular distance between start and end
+        let angleDiff = endAngle - startAngle;
+        if (angleDiff < 0) angleDiff += 2 * Math.PI;
+        
+        if (angleDiff > Math.PI) {
+            largeArc = 1;
+        }
 
-        return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y}`;
+        return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} ${sweep} ${end.x} ${end.y}`;
     };
 
     // Feature rendering logic remains mostly the same, just filtered by visibility
