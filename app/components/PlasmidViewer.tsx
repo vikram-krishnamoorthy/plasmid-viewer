@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import _ from 'lodash';
+import { Button } from "@/components/ui/button";
 
 interface Feature {
     type: string;
@@ -46,6 +47,7 @@ const PlasmidViewer: React.FC = () => {
     const [isDragging, setIsDragging] = useState<boolean>(false);
     const [dragStart, setDragStart] = useState<number | null>(null);
     const svgRef = useRef<SVGSVGElement>(null);
+    const [isLoading, setIsLoading] = useState(false);
 
     // Extract unique feature types
     const featureTypes: string[] = _.uniq(features.map(f => f.type));
@@ -377,13 +379,62 @@ const PlasmidViewer: React.FC = () => {
         return baseRadius - layer * 15;
     };
 
+    // Add file handling function
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsLoading(true);
+        const reader = new FileReader();
+        
+        reader.onload = (event) => {
+            try {
+                const content = event.target?.result as string;
+                setSequence(content);
+                parseGenBank(content);
+            } catch (error) {
+                console.error('Error parsing file:', error);
+                // You might want to add a toast or error message here
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        reader.onerror = () => {
+            console.error('Error reading file');
+            setIsLoading(false);
+            // You might want to add a toast or error message here
+        };
+
+        reader.readAsText(file);
+    };
+
     return (
         <Card className="w-full max-w-4xl">
             <CardHeader>
                 <CardTitle>Plasmid Map Viewer</CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="mb-4">
+                <div className="mb-4 space-y-4">
+                    <div className="flex items-center gap-4">
+                        <Button
+                            variant="outline"
+                            onClick={() => document.getElementById('file-upload')?.click()}
+                            disabled={isLoading}
+                        >
+                            {isLoading ? "Loading..." : "Upload GenBank File"}
+                        </Button>
+                        <input
+                            id="file-upload"
+                            type="file"
+                            accept=".gb,.gbk,.genbank"
+                            className="hidden"
+                            onChange={handleFileUpload}
+                        />
+                        <span className="text-sm text-gray-500">
+                            or
+                        </span>
+                    </div>
                     <textarea
                         className="w-full h-48 p-2 border rounded"
                         placeholder="Paste GenBank format sequence here..."
