@@ -9,7 +9,9 @@ import { PlasmidBackbone } from './plasmid/PlasmidBackbone';
 import { PlasmidFeature } from './plasmid/PlasmidFeature';
 import { SelectionHighlight } from './plasmid/SelectionHighlight';
 import { PlasmidInfo } from './plasmid/PlasmidInfo';
-import type { Feature, SelectedRegion, LabelPosition, FeaturePath } from './plasmid/types';
+import type { Feature, SelectedRegion, LabelPosition } from './plasmid/types';
+import { coordsToAngle, angleToCoords, normalizeAngle } from './plasmid/utils/geometry';
+import { PLASMID_CONSTANTS, TWO_PI } from './plasmid/utils/constants';
 
 const PlasmidViewer: React.FC = () => {
     const [sequence, setSequence] = useState<string>('');
@@ -141,49 +143,37 @@ const PlasmidViewer: React.FC = () => {
         return colorMap[type.toLowerCase()] || '#BDC3C7';
     };
 
-    // Convert plasmid coordinates to SVG coordinates
-    const coordsToAngle = (pos: number): number => {
-        return (pos / plasmidLength) * 2 * Math.PI - Math.PI / 2;
-    };
-
-    const angleToCoords = (angle: number, radius: number): { x: number, y: number } => {
-        return {
-            x: 300 + radius * Math.cos(angle),
-            y: 300 + radius * Math.sin(angle)
-        };
-    };
-
-    // Convert mouse position to plasmid position
-    const mouseToCirclePosition = (e: React.MouseEvent): number => {
-        const svg = svgRef.current;
+    const mouseToCirclePosition = (e: React.MouseEvent, svg: SVGSVGElement | null): number => {
         if (!svg) return 0;
-
+        
         const pt = svg.createSVGPoint();
         pt.x = e.clientX;
         pt.y = e.clientY;
-        const svgP = pt.matrixTransform(svg.getScreenCTM()?.inverse());
+        const matrix = svg.getScreenCTM();
+        if (!matrix) return 0;
+        
+        const svgP = pt.matrixTransform(matrix.inverse());
 
-        const dx = svgP.x - 300;
-        const dy = svgP.y - 300;
+        const dx = svgP.x - PLASMID_CONSTANTS.CENTER;
+        const dy = svgP.y - PLASMID_CONSTANTS.CENTER;
         const angle = Math.atan2(dy, dx) + Math.PI / 2;
-        const pos = Math.round(((angle + 2 * Math.PI) % (2 * Math.PI)) * plasmidLength / (2 * Math.PI));
+        const pos = Math.round((normalizeAngle(angle)) * plasmidLength / TWO_PI);
         return pos === plasmidLength ? 0 : pos;
     };
 
     // Handle mouse events for selection
     const handleMouseDown = (e: React.MouseEvent): void => {
-        if (!plasmidLength) return;
-        const pos = mouseToCirclePosition(e);
+        if (!plasmidLength || !svgRef.current) return;
+        const pos = mouseToCirclePosition(e, svgRef.current);
         setDragStart(pos);
         setIsDragging(true);
         setSelectedRegion(null);
     };
 
     const handleMouseMove = (e: React.MouseEvent): void => {
-        if (!isDragging || dragStart === null) return;
-        const currentPos = mouseToCirclePosition(e);
+        if (!isDragging || dragStart === null || !svgRef.current) return;
+        const currentPos = mouseToCirclePosition(e, svgRef.current);
 
-        // Always set start and end based on actual positions
         setSelectedRegion({
             start: dragStart,
             end: currentPos
@@ -249,109 +239,76 @@ const PlasmidViewer: React.FC = () => {
     // Draw selection arc
     const getSelectionPath = (): string => {
         if (!selectedRegion) return '';
-        const startAngle = coordsToAngle(selectedRegion.start);
-        const endAngle = coordsToAngle(selectedRegion.end);
-        const radius = 200;
+        const startAngle = coordsToAngle(selectedRegion.start, plasmidLength);
+        const endAngle = coordsToAngle(selectedRegion.end, plasmidLength);
+        const radius = PLASMID_CONSTANTS.BACKBONE_RADIUS;
         const start = angleToCoords(startAngle, radius);
         const end = angleToCoords(endAngle, radius);
 
-        // Determine if we need to draw the arc clockwise or counterclockwise
-        let largeArc = 0;
-        let sweep = 1;
-
-        // Calculate the angular distance between start and end
         let angleDiff = endAngle - startAngle;
-        if (angleDiff < 0) angleDiff += 2 * Math.PI;
+        if (angleDiff < 0) angleDiff += TWO_PI;
 
-        if (angleDiff > Math.PI) {
-            largeArc = 1;
-        }
+        const largeArc = angleDiff > Math.PI ? 1 : 0;
+        const sweep = 1;
 
         return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} ${sweep} ${end.x} ${end.y}`;
     };
 
-    // Feature rendering logic remains mostly the same, just filtered by visibility
-    const getFeaturePath = (feature: Feature, radius: number): FeaturePath => {
-        const startAngle = coordsToAngle(feature.start);
-        const endAngle = coordsToAngle(feature.end);
-        const arcRadius = radius;
-
-        const startX = 300 + arcRadius * Math.cos(startAngle);
-        const startY = 300 + arcRadius * Math.sin(startAngle);
-        const endX = 300 + arcRadius * Math.cos(endAngle);
-        const endY = 300 + arcRadius * Math.sin(endAngle);
-
-        const largeArc = endAngle - startAngle > Math.PI ? 1 : 0;
-
-        const arrowSize = 6;
-        const arrowAngle = feature.complement ? startAngle : endAngle;
-        const arrowX = 300 + arcRadius * Math.cos(arrowAngle);
-        const arrowY = 300 + arcRadius * Math.sin(arrowAngle);
-
-        const arrowTip = {
-            x: arrowX + arrowSize * Math.cos(arrowAngle),
-            y: arrowY + arrowSize * Math.sin(arrowAngle)
-        };
-
-        const arrowBase1 = {
-            x: arrowX + arrowSize * Math.cos(arrowAngle - Math.PI / 6),
-            y: arrowY + arrowSize * Math.sin(arrowAngle - Math.PI / 6)
-        };
-
-        const arrowBase2 = {
-            x: arrowX + arrowSize * Math.cos(arrowAngle + Math.PI / 6),
-            y: arrowY + arrowSize * Math.sin(arrowAngle + Math.PI / 6)
-        };
-
-        return {
-            path: `M ${startX} ${startY} A ${arcRadius} ${arcRadius} 0 ${largeArc} 1 ${endX} ${endY}`,
-            arrow: `M ${arrowBase1.x} ${arrowBase1.y} L ${arrowTip.x} ${arrowTip.y} L ${arrowBase2.x} ${arrowBase2.y}`
-        };
-    };
-
     const calculateLabelPositions = (): LabelPosition[] => {
-        const labelRadius = 250;
         const visibleFeatures = features.filter(f => visibleFeatureTypes.has(f.type));
-        const labels = visibleFeatures.map((feature, index) => {
-            const midAngle = ((feature.start + feature.end) / 2 / plasmidLength) * 2 * Math.PI - Math.PI / 2;
+        
+        let labels = visibleFeatures.map((feature, index) => {
             const radius = getFeatureRadius(feature, index);
-
-            const featureX = 300 + radius * Math.cos(midAngle);
-            const featureY = 300 + radius * Math.sin(midAngle);
-            const labelX = 300 + labelRadius * Math.cos(midAngle);
-            const labelY = 300 + labelRadius * Math.sin(midAngle);
-
-            let rotation = (midAngle * 180 / Math.PI + 90) % 360;
-            let textAnchor = "start";
-            if (rotation > 90 && rotation < 270) {
-                rotation += 180;
-                textAnchor = "end";
-            }
+            const midAngle = coordsToAngle((feature.start + feature.end) / 2, plasmidLength);
+            
+            const featureCoords = angleToCoords(midAngle, radius);
+            const labelCoords = angleToCoords(midAngle, PLASMID_CONSTANTS.LABEL_RADIUS);
 
             return {
                 feature,
                 midAngle,
-                featureX,
-                featureY,
-                labelX,
-                labelY,
-                rotation,
-                textAnchor
+                featureX: featureCoords.x,
+                featureY: featureCoords.y,
+                labelX: labelCoords.x,
+                labelY: labelCoords.y,
+                rotation: 0,
+                textAnchor: labelCoords.x > PLASMID_CONSTANTS.CENTER ? "start" : "end",
+                radius,
+                plasmidLength
             };
         });
 
-        return _.sortBy(labels, 'midAngle');
+        // Sort labels by Y position for overlap prevention
+        labels = _.sortBy(labels, 'labelY');
+        
+        // Adjust overlapping labels
+        for (let i = 1; i < labels.length; i++) {
+            const prevLabel = labels[i - 1];
+            const currentLabel = labels[i];
+
+            if (Math.abs(currentLabel.labelY - prevLabel.labelY) < PLASMID_CONSTANTS.MIN_LABEL_SPACING) {
+                currentLabel.labelY = prevLabel.labelY + PLASMID_CONSTANTS.MIN_LABEL_SPACING;
+            }
+        }
+
+        return labels;
     };
 
     const getFeatureRadius = (feature: Feature, index: number): number => {
-        const baseRadius = 180;
+        const baseRadius = 170; // Start inside backbone
         const visibleFeatures = features.filter(f => visibleFeatureTypes.has(f.type));
-        const overlap = visibleFeatures.filter(f =>
-            (f.start <= feature.end && f.end >= feature.start) ||
-            (f.start <= feature.end + plasmidLength && f.end >= feature.start)
-        );
-        const layer = overlap.indexOf(feature);
-        return baseRadius - layer * 15;
+        
+        // Find overlapping features
+        const overlappingFeatures = visibleFeatures.filter(f => {
+            const overlapStart = Math.min(f.start, feature.start);
+            const overlapEnd = Math.max(f.end, feature.end);
+            const range = overlapEnd - overlapStart;
+            
+            return range <= Math.abs(f.end - f.start) + Math.abs(feature.end - feature.start);
+        });
+        
+        const layer = overlappingFeatures.indexOf(feature);
+        return baseRadius - (layer * 15); // Smaller spacing between layers
     };
 
     // Add file handling function
@@ -463,22 +420,15 @@ const PlasmidViewer: React.FC = () => {
                             <SelectionHighlight selectionPath={getSelectionPath()} />
                         )}
 
-                        {calculateLabelPositions().map((labelPosition, index) => {
-                            const radius = getFeatureRadius(labelPosition.feature, index);
-                            const { path, arrow } = getFeaturePath(labelPosition.feature, radius);
-
-                            return (
-                                <PlasmidFeature
-                                    key={index}
-                                    labelPosition={labelPosition}
-                                    path={path}
-                                    arrow={arrow}
-                                    isSelected={selectedRegion?.start === labelPosition.feature.start && 
-                                              selectedRegion?.end === labelPosition.feature.end}
-                                    onClick={() => handleFeatureClick(labelPosition.feature)}
-                                />
-                            );
-                        })}
+                        {calculateLabelPositions().map((labelPosition, index) => (
+                            <PlasmidFeature
+                                key={index}
+                                labelPosition={labelPosition}
+                                isSelected={selectedRegion?.start === labelPosition.feature.start &&
+                                           selectedRegion?.end === labelPosition.feature.end}
+                                onClick={() => handleFeatureClick(labelPosition.feature)}
+                            />
+                        ))}
 
                         <PlasmidInfo name={plasmidName} length={plasmidLength} />
                     </svg>

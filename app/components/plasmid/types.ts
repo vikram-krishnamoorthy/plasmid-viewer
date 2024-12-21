@@ -21,6 +21,8 @@ export interface LabelPosition {
     labelY: number;
     rotation: number;
     textAnchor: string;
+    radius: number;
+    plasmidLength: number;
 }
 
 export interface FeaturePath {

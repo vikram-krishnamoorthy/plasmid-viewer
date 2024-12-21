@@ -1,0 +1,139 @@
+import { PLASMID_CONSTANTS, TWO_PI } from './constants';
+const { CENTER, PATH_WIDTH, ARROW_HEAD_LENGTH, ARROW_HEAD_WIDTH } = PLASMID_CONSTANTS;
+
+export interface Point {
+    x: number;
+    y: number;
+}
+
+export const coordsToAngle = (pos: number, plasmidLength: number): number => {
+    return (pos / plasmidLength) * TWO_PI - Math.PI / 2;
+};
+
+export const angleToCoords = (angle: number, radius: number): Point => {
+    return {
+        x: CENTER + radius * Math.cos(angle),
+        y: CENTER + radius * Math.sin(angle)
+    };
+};
+
+export const normalizeAngle = (angle: number): number => {
+    return (angle + TWO_PI) % TWO_PI;
+};
+
+export const createFeaturePath = (
+    startAngle: number,
+    endAngle: number,
+    radius: number,
+    isComplement: boolean
+): string => {
+    // Normalize angles
+    let actualStartAngle = startAngle;
+    let actualEndAngle = endAngle;
+    if (actualEndAngle < actualStartAngle) {
+        actualEndAngle += TWO_PI;
+    }
+
+    // Calculate path radii
+    const outerRadius = radius + PATH_WIDTH / 2;
+    const innerRadius = radius - PATH_WIDTH / 2;
+
+    // Calculate main arc points
+    const outerStart = angleToCoords(actualStartAngle, outerRadius);
+    const outerEnd = angleToCoords(actualEndAngle, outerRadius);
+    const innerStart = angleToCoords(actualStartAngle, innerRadius);
+    const innerEnd = angleToCoords(actualEndAngle, innerRadius);
+
+    const largeArc = (actualEndAngle - actualStartAngle) > Math.PI ? 1 : 0;
+
+    // Calculate arrow head points
+    const arrowAngle = isComplement ? actualStartAngle : actualEndAngle;
+    const arrowTip = angleToCoords(arrowAngle, radius + ARROW_HEAD_LENGTH / 2);
+
+    // Calculate arrow base points perpendicular to the radius
+    const perpAngle = arrowAngle + Math.PI / 2;
+    const arrowBase = angleToCoords(arrowAngle, radius);
+    const arrowLeft: Point = {
+        x: arrowBase.x + (ARROW_HEAD_WIDTH / 2) * Math.cos(perpAngle),
+        y: arrowBase.y + (ARROW_HEAD_WIDTH / 2) * Math.sin(perpAngle)
+    };
+    const arrowRight: Point = {
+        x: arrowBase.x - (ARROW_HEAD_WIDTH / 2) * Math.cos(perpAngle),
+        y: arrowBase.y - (ARROW_HEAD_WIDTH / 2) * Math.sin(perpAngle)
+    };
+
+    return isComplement
+        ? createComplementPath(outerEnd, outerStart, arrowTip, arrowLeft, arrowRight, innerStart, innerEnd, outerRadius, innerRadius, largeArc)
+        : createForwardPath(outerStart, outerEnd, arrowTip, arrowLeft, arrowRight, innerEnd, innerStart, outerRadius, innerRadius, largeArc);
+};
+
+const createComplementPath = (
+    outerEnd: Point,
+    outerStart: Point,
+    arrowTip: Point,
+    arrowLeft: Point,
+    arrowRight: Point,
+    innerStart: Point,
+    innerEnd: Point,
+    outerRadius: number,
+    innerRadius: number,
+    largeArc: number
+): string => {
+    return `M ${outerEnd.x} ${outerEnd.y}
+            A ${outerRadius} ${outerRadius} 0 ${largeArc} 0 ${outerStart.x} ${outerStart.y}
+            L ${arrowTip.x} ${arrowTip.y}
+            L ${arrowLeft.x} ${arrowLeft.y}
+            L ${arrowRight.x} ${arrowRight.y}
+            L ${innerStart.x} ${innerStart.y}
+            A ${innerRadius} ${innerRadius} 0 ${largeArc} 1 ${innerEnd.x} ${innerEnd.y}
+            Z`;
+};
+
+const createForwardPath = (
+    outerStart: Point,
+    outerEnd: Point,
+    arrowTip: Point,
+    arrowLeft: Point,
+    arrowRight: Point,
+    innerEnd: Point,
+    innerStart: Point,
+    outerRadius: number,
+    innerRadius: number,
+    largeArc: number
+): string => {
+    return `M ${outerStart.x} ${outerStart.y}
+            A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${outerEnd.x} ${outerEnd.y}
+            L ${arrowTip.x} ${arrowTip.y}
+            L ${arrowLeft.x} ${arrowLeft.y}
+            L ${arrowRight.x} ${arrowRight.y}
+            L ${innerEnd.x} ${innerEnd.y}
+            A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${innerStart.x} ${innerStart.y}
+            Z`;
+};
+
+export const createArrowPath = (angle: number, radius: number): string => {
+    // Example arrow shape: a small triangle
+    const { ARROW_HEAD_LENGTH, ARROW_HEAD_WIDTH, CENTER } = PLASMID_CONSTANTS;
+
+    // Tip of the arrow
+    const arrowTip = angleToCoords(angle, radius + ARROW_HEAD_LENGTH);
+    // Base center of the arrow
+    const arrowBase = angleToCoords(angle, radius);
+    // Perpendicular angle for left/right edges
+    const perpAngle = angle + Math.PI / 2;
+
+    const arrowLeft = {
+        x: arrowBase.x + (ARROW_HEAD_WIDTH / 2) * Math.cos(perpAngle),
+        y: arrowBase.y + (ARROW_HEAD_WIDTH / 2) * Math.sin(perpAngle),
+    };
+    const arrowRight = {
+        x: arrowBase.x - (ARROW_HEAD_WIDTH / 2) * Math.cos(perpAngle),
+        y: arrowBase.y - (ARROW_HEAD_WIDTH / 2) * Math.sin(perpAngle),
+    };
+
+    // Draw a triangle from left edge -> tip -> right edge -> back to left
+    return `M ${arrowLeft.x} ${arrowLeft.y}
+            L ${arrowTip.x} ${arrowTip.y}
+            L ${arrowRight.x} ${arrowRight.y}
+            Z`;
+}; 

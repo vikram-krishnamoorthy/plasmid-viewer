@@ -1,0 +1,14 @@
+export const PLASMID_CONSTANTS = {
+    CENTER: 300,
+    BACKBONE_RADIUS: 200,
+    FEATURE_BASE_RADIUS: 170,
+    PATH_WIDTH: 6,
+    ARROW_HEAD_LENGTH: 12,
+    ARROW_HEAD_WIDTH: 8,
+    LABEL_RADIUS: 250,
+    LABEL_OFFSET: 10,
+    MIN_LABEL_SPACING: 15,
+    MARKER_COUNT: 12
+} as const;
+
+export const TWO_PI = 2 * Math.PI; 
