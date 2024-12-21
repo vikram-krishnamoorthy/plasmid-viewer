@@ -13,24 +13,39 @@ import type { Feature, SelectedRegion, LabelPosition } from './plasmid/types';
 import { coordsToAngle, angleToCoords, normalizeAngle } from './plasmid/utils/geometry';
 import { PLASMID_CONSTANTS, TWO_PI } from './plasmid/utils/constants';
 
+const generateDistinctColors = (count: number): string[] => {
+    const colors: string[] = [];
+    for (let i = 0; i < count; i++) {
+        // Use HSL to generate evenly spaced colors with good saturation and lightness
+        const hue = (i * 360 / count) % 360;
+        colors.push(`hsl(${hue}, 70%, 45%)`);
+    }
+    return colors;
+};
+
 const PlasmidViewer: React.FC = () => {
     const [sequence, setSequence] = useState<string>('');
     const [features, setFeatures] = useState<Feature[]>([]);
     const [plasmidName, setPlasmidName] = useState<string>('');
     const [plasmidLength, setPlasmidLength] = useState<number>(0);
     const [dnaSequence, setDnaSequence] = useState<string>('');
-    const [visibleFeatureTypes, setVisibleFeatureTypes] = useState<Set<string>>(new Set());
+    const [visibleFeatureTypes, setVisibleFeatureTypes] = useState<Set<string>>(() => {
+        const initialTypes = new Set<string>();
+        return initialTypes;
+    });
     const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
     const [isDragging, setIsDragging] = useState<boolean>(false);
     const [dragStart, setDragStart] = useState<number | null>(null);
     const svgRef = useRef<SVGSVGElement>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [featureColors, setFeatureColors] = useState<Record<string, string>>({});
 
     // Extract unique feature types
     const featureTypes: string[] = _.uniq(features.map(f => f.type));
 
     const parseGenBank = (input: string): void => {
         const features: Feature[] = [];
+        let featureCounter = 0;
         const lines = input.split('\n');
         let currentFeature: Feature | null = null;
         let inFeatures = false;
@@ -99,12 +114,13 @@ const PlasmidViewer: React.FC = () => {
                     }
 
                     currentFeature = {
+                        id: `feature-${featureCounter++}`,
                         type,
                         start,
                         end,
                         complement,
                         label: '',
-                        color: getFeatureColor(type)
+                        color: '#BDC3C7'
                     };
                 } else if (line.match(/^\s{21}/) && currentFeature) {
                     const qualifier = line.trim();
@@ -128,30 +144,15 @@ const PlasmidViewer: React.FC = () => {
         setVisibleFeatureTypes(new Set(_.uniq(features.map(f => f.type))));
     };
 
-    const getFeatureColor = (type: string): string => {
-        const colorMap: Record<string, string> = {
-            CDS: '#4C9BE6',
-            promoter: '#45B649',
-            terminator: '#E74C3C',
-            misc_feature: '#9B59B6',
-            rep_origin: '#F1C40F',
-            gene: '#2ECC71',
-            primer_bind: '#E67E22',
-            regulatory: '#95A5A6',
-            polyA_signal: '#1ABC9C'
-        };
-        return colorMap[type.toLowerCase()] || '#BDC3C7';
-    };
-
-    const mouseToCirclePosition = (e: React.MouseEvent, svg: SVGSVGElement | null): number => {
+    const mouseToCirclePosition = (e: React.MouseEvent<SVGSVGElement>, svg: SVGSVGElement | null): number => {
         if (!svg) return 0;
-        
+
         const pt = svg.createSVGPoint();
         pt.x = e.clientX;
         pt.y = e.clientY;
         const matrix = svg.getScreenCTM();
         if (!matrix) return 0;
-        
+
         const svgP = pt.matrixTransform(matrix.inverse());
 
         const dx = svgP.x - PLASMID_CONSTANTS.CENTER;
@@ -162,7 +163,7 @@ const PlasmidViewer: React.FC = () => {
     };
 
     // Handle mouse events for selection
-    const handleMouseDown = (e: React.MouseEvent): void => {
+    const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>): void => {
         if (!plasmidLength || !svgRef.current) return;
         const pos = mouseToCirclePosition(e, svgRef.current);
         setDragStart(pos);
@@ -170,7 +171,7 @@ const PlasmidViewer: React.FC = () => {
         setSelectedRegion(null);
     };
 
-    const handleMouseMove = (e: React.MouseEvent): void => {
+    const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>): void => {
         if (!isDragging || dragStart === null || !svgRef.current) return;
         const currentPos = mouseToCirclePosition(e, svgRef.current);
 
@@ -194,7 +195,7 @@ const PlasmidViewer: React.FC = () => {
 
     // Handle copy event
     useEffect(() => {
-        const handleCopy = (e: ClipboardEvent): void => {
+        const handleCopy = (e: ClipboardEvent & { clipboardData: DataTransfer }): void => {
             if (selectedRegion && dnaSequence) {
                 e.preventDefault();
                 let seq = '';
@@ -210,7 +211,7 @@ const PlasmidViewer: React.FC = () => {
                     seq = dnaSequence.substring(start) + dnaSequence.substring(0, end + 1);
                 }
 
-                e.clipboardData?.setData('text/plain', seq);
+                e.clipboardData.setData('text/plain', seq);
 
                 // Visual feedback
                 const feedbackDiv = document.createElement('div');
@@ -232,8 +233,8 @@ const PlasmidViewer: React.FC = () => {
             }
         };
 
-        document.addEventListener('copy', handleCopy);
-        return () => document.removeEventListener('copy', handleCopy);
+        document.addEventListener('copy', handleCopy as EventListener);
+        return () => document.removeEventListener('copy', handleCopy as EventListener);
     }, [selectedRegion, dnaSequence]);
 
     // Draw selection arc
@@ -256,23 +257,49 @@ const PlasmidViewer: React.FC = () => {
 
     const calculateLabelPositions = (): LabelPosition[] => {
         const visibleFeatures = features.filter(f => visibleFeatureTypes.has(f.type));
-        
-        let labels = visibleFeatures.map((feature, index) => {
-            const radius = getFeatureRadius(feature, index);
+
+        // Sort features by size (largest first) and then by start position
+        const sortedFeatures = _.orderBy(visibleFeatures,
+            [
+                feature => Math.abs(feature.end - feature.start),
+                'start'
+            ],
+            ['desc', 'asc']
+        );
+
+        let labels = sortedFeatures.map((feature) => {
+            const radius = getFeatureRadius(feature, sortedFeatures);
             const midAngle = coordsToAngle((feature.start + feature.end) / 2, plasmidLength);
-            
+
+            // Calculate feature point on the arc
             const featureCoords = angleToCoords(midAngle, radius);
-            const labelCoords = angleToCoords(midAngle, PLASMID_CONSTANTS.LABEL_RADIUS);
+
+            // Calculate the perpendicular point extending from the circle
+            // This maintains perpendicularity by using the same angle
+            const radialPoint = angleToCoords(midAngle, PLASMID_CONSTANTS.LABEL_RADIUS);
+
+            // Determine if label should be on left or right side
+            const isRightSide = radialPoint.x > PLASMID_CONSTANTS.CENTER;
+            const labelOffset = PLASMID_CONSTANTS.LABEL_OFFSET;
+
+            // Calculate final label position
+            // Keep it at the same height as the radial point for horizontal alignment
+            const labelX = isRightSide
+                ? radialPoint.x + labelOffset
+                : radialPoint.x - labelOffset;
 
             return {
                 feature,
                 midAngle,
                 featureX: featureCoords.x,
                 featureY: featureCoords.y,
-                labelX: labelCoords.x,
-                labelY: labelCoords.y,
+                // Use the actual radial point to maintain perpendicularity
+                radialX: radialPoint.x,
+                radialY: radialPoint.y,
+                labelX,
+                labelY: radialPoint.y,
                 rotation: 0,
-                textAnchor: labelCoords.x > PLASMID_CONSTANTS.CENTER ? "start" : "end",
+                textAnchor: isRightSide ? "start" : "end",
                 radius,
                 plasmidLength
             };
@@ -280,7 +307,7 @@ const PlasmidViewer: React.FC = () => {
 
         // Sort labels by Y position for overlap prevention
         labels = _.sortBy(labels, 'labelY');
-        
+
         // Adjust overlapping labels
         for (let i = 1; i < labels.length; i++) {
             const prevLabel = labels[i - 1];
@@ -288,27 +315,72 @@ const PlasmidViewer: React.FC = () => {
 
             if (Math.abs(currentLabel.labelY - prevLabel.labelY) < PLASMID_CONSTANTS.MIN_LABEL_SPACING) {
                 currentLabel.labelY = prevLabel.labelY + PLASMID_CONSTANTS.MIN_LABEL_SPACING;
+                // Update the radial point's Y coordinate to match the new label position
+                currentLabel.radialY = currentLabel.labelY;
             }
         }
 
         return labels;
     };
 
-    const getFeatureRadius = (feature: Feature, index: number): number => {
-        const baseRadius = 170; // Start inside backbone
-        const visibleFeatures = features.filter(f => visibleFeatureTypes.has(f.type));
-        
-        // Find overlapping features
-        const overlappingFeatures = visibleFeatures.filter(f => {
-            const overlapStart = Math.min(f.start, feature.start);
-            const overlapEnd = Math.max(f.end, feature.end);
-            const range = overlapEnd - overlapStart;
-            
-            return range <= Math.abs(f.end - f.start) + Math.abs(feature.end - feature.start);
+    const getFeatureRadius = (feature: Feature, sortedFeatures: Feature[]): number => {
+        const baseRadius = PLASMID_CONSTANTS.FEATURE_BASE_RADIUS;
+        const NEARBY_THRESHOLD = 10; // bases
+
+        // Find features that overlap with this one
+        const overlappingFeatures = sortedFeatures.filter(f => {
+            if (f.id === feature.id) return false;
+
+            // Handle circular plasmid wrapping
+            let start1 = feature.start;
+            let end1 = feature.end;
+            let start2 = f.start;
+            let end2 = f.end;
+
+            // Normalize positions for circular comparison
+            if (end1 < start1) end1 += plasmidLength;
+            if (end2 < start2) end2 += plasmidLength;
+
+            // Check if features overlap or are within threshold
+            const overlapStart = Math.max(start1, start2);
+            const overlapEnd = Math.min(end1, end2);
+
+            return (overlapEnd - overlapStart + NEARBY_THRESHOLD) >= 0;
         });
-        
-        const layer = overlappingFeatures.indexOf(feature);
-        return baseRadius - (layer * 15); // Smaller spacing between layers
+
+        if (overlappingFeatures.length === 0) return baseRadius;
+
+        // Calculate the size of this feature
+        const featureSize = feature.end > feature.start
+            ? feature.end - feature.start
+            : (plasmidLength - feature.start) + feature.end;
+
+        // Count how many larger features this one is contained within
+        const containingFeatures = overlappingFeatures.filter(f => {
+            const otherSize = f.end > f.start
+                ? f.end - f.start
+                : (plasmidLength - f.start) + f.end;
+
+            // Check if this feature is fully contained within the other feature
+            let start1 = feature.start;
+            let end1 = feature.end;
+            let start2 = f.start;
+            let end2 = f.end;
+
+            // Normalize positions for circular comparison
+            if (end1 < start1) end1 += plasmidLength;
+            if (end2 < start2) end2 += plasmidLength;
+
+            // A feature is contained if:
+            // 1. It's smaller than the other feature
+            // 2. Its start and end positions fall within the other feature's range
+            return otherSize > featureSize &&
+                start1 >= start2 &&
+                end1 <= end2;
+        });
+
+        // Move feature inward based on how many features contain it
+        return baseRadius - (containingFeatures.length * 15);
     };
 
     // Add file handling function
@@ -339,6 +411,45 @@ const PlasmidViewer: React.FC = () => {
         };
 
         reader.readAsText(file);
+    };
+
+    // Update useEffect to handle feature colors when features change
+    useEffect(() => {
+        if (features.length > 0) {
+            const types = new Set(features
+                .map(f => f.type)
+                .filter(type => type.toLowerCase() !== 'source')
+            );
+
+            // Generate colors for unique feature types
+            const uniqueTypes = Array.from(types);
+            const colors = generateDistinctColors(uniqueTypes.length);
+            const colorMap = Object.fromEntries(
+                uniqueTypes.map((type, index) => [type, colors[index]])
+            );
+
+            setFeatureColors(colorMap);
+
+            // Update existing features with new colors
+            const updatedFeatures = features.map(feature => ({
+                ...feature,
+                color: colorMap[feature.type] || '#BDC3C7'
+            }));
+
+            setFeatures(updatedFeatures);
+            setVisibleFeatureTypes(types);
+        }
+    }, [features.length]); // Only run when number of features changes
+
+    // Fix Checkbox onCheckedChange type
+    const handleCheckboxChange = (checked: boolean | "indeterminate", type: string) => {
+        const newTypes = new Set(visibleFeatureTypes);
+        if (checked === true) {
+            newTypes.add(type);
+        } else {
+            newTypes.delete(type);
+        }
+        setVisibleFeatureTypes(newTypes);
     };
 
     return (
@@ -384,15 +495,11 @@ const PlasmidViewer: React.FC = () => {
                             <Checkbox
                                 id={`feature-${type}`}
                                 checked={visibleFeatureTypes.has(type)}
-                                onCheckedChange={(checked) => {
-                                    const newTypes = new Set(visibleFeatureTypes);
-                                    if (checked) {
-                                        newTypes.add(type);
-                                    } else {
-                                        newTypes.delete(type);
-                                    }
-                                    setVisibleFeatureTypes(newTypes);
-                                }}
+                                onCheckedChange={(checked) => handleCheckboxChange(checked, type)}
+                                style={{
+                                    '--checkbox-color': featureColors[type] || '#BDC3C7'
+                                } as React.CSSProperties}
+                                className="data-[state=checked]:bg-[var(--checkbox-color)] data-[state=checked]:border-[var(--checkbox-color)]"
                             />
                             <label
                                 htmlFor={`feature-${type}`}
@@ -420,12 +527,13 @@ const PlasmidViewer: React.FC = () => {
                             <SelectionHighlight selectionPath={getSelectionPath()} />
                         )}
 
-                        {calculateLabelPositions().map((labelPosition, index) => (
+                        {/* Features are now rendered in order from largest to smallest */}
+                        {calculateLabelPositions().map((labelPosition) => (
                             <PlasmidFeature
-                                key={index}
+                                key={labelPosition.feature.id}
                                 labelPosition={labelPosition}
                                 isSelected={selectedRegion?.start === labelPosition.feature.start &&
-                                           selectedRegion?.end === labelPosition.feature.end}
+                                    selectedRegion?.end === labelPosition.feature.end}
                                 onClick={() => handleFeatureClick(labelPosition.feature)}
                             />
                         ))}

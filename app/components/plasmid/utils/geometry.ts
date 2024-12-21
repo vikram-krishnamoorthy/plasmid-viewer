@@ -46,66 +46,9 @@ export const createFeaturePath = (
 
     const largeArc = (actualEndAngle - actualStartAngle) > Math.PI ? 1 : 0;
 
-    // Calculate arrow head points
-    const arrowAngle = isComplement ? actualStartAngle : actualEndAngle;
-    const arrowTip = angleToCoords(arrowAngle, radius + ARROW_HEAD_LENGTH / 2);
-
-    // Calculate arrow base points perpendicular to the radius
-    const perpAngle = arrowAngle + Math.PI / 2;
-    const arrowBase = angleToCoords(arrowAngle, radius);
-    const arrowLeft: Point = {
-        x: arrowBase.x + (ARROW_HEAD_WIDTH / 2) * Math.cos(perpAngle),
-        y: arrowBase.y + (ARROW_HEAD_WIDTH / 2) * Math.sin(perpAngle)
-    };
-    const arrowRight: Point = {
-        x: arrowBase.x - (ARROW_HEAD_WIDTH / 2) * Math.cos(perpAngle),
-        y: arrowBase.y - (ARROW_HEAD_WIDTH / 2) * Math.sin(perpAngle)
-    };
-
-    return isComplement
-        ? createComplementPath(outerEnd, outerStart, arrowTip, arrowLeft, arrowRight, innerStart, innerEnd, outerRadius, innerRadius, largeArc)
-        : createForwardPath(outerStart, outerEnd, arrowTip, arrowLeft, arrowRight, innerEnd, innerStart, outerRadius, innerRadius, largeArc);
-};
-
-const createComplementPath = (
-    outerEnd: Point,
-    outerStart: Point,
-    arrowTip: Point,
-    arrowLeft: Point,
-    arrowRight: Point,
-    innerStart: Point,
-    innerEnd: Point,
-    outerRadius: number,
-    innerRadius: number,
-    largeArc: number
-): string => {
-    return `M ${outerEnd.x} ${outerEnd.y}
-            A ${outerRadius} ${outerRadius} 0 ${largeArc} 0 ${outerStart.x} ${outerStart.y}
-            L ${arrowTip.x} ${arrowTip.y}
-            L ${arrowLeft.x} ${arrowLeft.y}
-            L ${arrowRight.x} ${arrowRight.y}
-            L ${innerStart.x} ${innerStart.y}
-            A ${innerRadius} ${innerRadius} 0 ${largeArc} 1 ${innerEnd.x} ${innerEnd.y}
-            Z`;
-};
-
-const createForwardPath = (
-    outerStart: Point,
-    outerEnd: Point,
-    arrowTip: Point,
-    arrowLeft: Point,
-    arrowRight: Point,
-    innerEnd: Point,
-    innerStart: Point,
-    outerRadius: number,
-    innerRadius: number,
-    largeArc: number
-): string => {
+    // Simple path without arrow head
     return `M ${outerStart.x} ${outerStart.y}
             A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${outerEnd.x} ${outerEnd.y}
-            L ${arrowTip.x} ${arrowTip.y}
-            L ${arrowLeft.x} ${arrowLeft.y}
-            L ${arrowRight.x} ${arrowRight.y}
             L ${innerEnd.x} ${innerEnd.y}
             A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${innerStart.x} ${innerStart.y}
             Z`;

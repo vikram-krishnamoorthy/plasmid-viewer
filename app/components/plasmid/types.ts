@@ -1,4 +1,5 @@
 export interface Feature {
+    id: string;
     type: string;
     start: number;
     end: number;
@@ -17,6 +18,8 @@ export interface LabelPosition {
     midAngle: number;
     featureX: number;
     featureY: number;
+    radialX: number;
+    radialY: number;
     labelX: number;
     labelY: number;
     rotation: number;
