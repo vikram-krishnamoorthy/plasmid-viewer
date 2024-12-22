@@ -108,12 +108,20 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
         return f1.start <= f2End && f2.start <= f1End;
     };
 
-    // Assign tracks to features within a line segment with priority for longer features
+    // Assign tracks to features within a line segment with priority for translated features and longer features
     const assignTracks = (lineFeatures: Feature[]): Map<string, number> => {
         const trackAssignments = new Map<string, number>();
 
-        // Sort features by size (largest first) and then by start position
+        // Sort features by:
+        // 1. Type is 'translation' (highest priority)
+        // 2. Size (second priority)
+        // 3. Start position (last priority)
         const sortedFeatures = [...lineFeatures].sort((a, b) => {
+            // First compare by type
+            if (a.type === 'translation' && b.type !== 'translation') return -1;
+            if (a.type !== 'translation' && b.type === 'translation') return 1;
+
+            // Then compare by size
             const getSize = (f: Feature) => {
                 const size = f.end < f.start ?
                     (plasmidLength - f.start) + f.end :
@@ -124,7 +132,7 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
             const sizeA = getSize(a);
             const sizeB = getSize(b);
 
-            // Sort by size first (descending)
+            // Sort by size (descending)
             if (sizeB !== sizeA) {
                 return sizeB - sizeA;
             }
@@ -250,9 +258,8 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
         const lineSequence = sequence.slice(lineStart, lineEnd);
         const y = lineIndex * TOTAL_LINE_HEIGHT + MARGIN_TOP;
 
-        // Adjust vertical spacing to account for amino acids
-        const aminoAcidsY = 0; // Put amino acids at the top
-        const featuresY = aminoAcidsY + AMINO_ACID_HEIGHT + AMINO_ACID_GAP; // Move features down
+        // Adjust vertical spacing
+        const featuresY = MARGIN_TOP; // Features start at the top
         const sequenceY = featuresY + (FEATURE_TRACK_HEIGHT * MAX_FEATURE_TRACKS) + FEATURE_SECTION_GAP;
         const backboneY = sequenceY + SEQUENCE_HEIGHT / 2;
         const positionY = backboneY;
@@ -264,33 +271,6 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
         });
 
         const trackAssignments = assignTracks(lineFeatures);
-
-        // Track label positions for this line to prevent overlaps
-        const labelPositions: { x: number, width: number, y: number }[] = [];
-
-        const findAvailableY = (x: number, width: number, baseY: number) => {
-            let y = baseY;
-            let hasOverlap;
-
-            do {
-                hasOverlap = labelPositions.some(pos => {
-                    // Check if labels overlap horizontally
-                    const horizontalOverlap = !(
-                        x + width < pos.x - LABEL_SPACING ||
-                        x > pos.x + pos.width + LABEL_SPACING
-                    );
-                    // Check if labels are too close vertically
-                    const verticalOverlap = Math.abs(y - pos.y) < LABEL_SPACING;
-                    return horizontalOverlap && verticalOverlap;
-                });
-
-                if (hasOverlap) {
-                    y -= LABEL_SPACING; // Move label up if there's overlap
-                }
-            } while (hasOverlap);
-
-            return y;
-        };
 
         // Calculate selection highlight positions
         const selectionHighlights = [];
@@ -315,13 +295,6 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
             }
         }
 
-        // Find CDS features with translations that overlap with this line
-        const cdsFeatures = lineFeatures.filter(f =>
-            f.type === 'CDS' &&
-            f.translation &&
-            visibleFeatureTypes.has(f.type)
-        );
-
         return (
             <g key={lineIndex} transform={`translate(${MARGIN_LEFT}, ${y})`} style={{ userSelect: 'none' }}>
                 {/* Render selection highlights first (below everything else) */}
@@ -336,144 +309,18 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
                     fill="#fff"
                 />
 
-                {/* Amino Acid Sequence */}
-                {cdsFeatures.map(feature => {
-                    if (!feature.translation) return null;
-
-                    // Calculate the visible portion of the feature for this line
-                    const featureStart = Math.max(lineStart, feature.start);
-                    const featureEnd = Math.min(lineEnd, feature.end);
-
-                    if (featureStart >= featureEnd) return null;
-
-                    const isSelected = selectedRegion?.start === feature.start &&
-                        selectedRegion?.end === feature.end;
-
-                    // For each base position in the visible region, determine which codon it belongs to
-                    const visibleBases = Array.from({ length: featureEnd - featureStart }, (_, i) => {
-                        const absolutePos = featureStart + i;
-                        const relativePos = absolutePos - feature.start;
-                        return {
-                            position: absolutePos,
-                            codonIndex: Math.floor(relativePos / 3),
-                            posInCodon: relativePos % 3
-                        };
-                    });
-
-                    // Group bases by codon
-                    const codonGroups = visibleBases.reduce((groups, base) => {
-                        if (!groups[base.codonIndex]) {
-                            groups[base.codonIndex] = [];
-                        }
-                        groups[base.codonIndex].push(base);
-                        return groups;
-                    }, {} as Record<number, typeof visibleBases>);
-
-                    return (
-                        <g
-                            key={`aa-${feature.id}`}
-                            onClick={() => onFeatureClick(feature)}
-                            style={{ cursor: 'pointer' }}
-                        >
-                            {Object.entries(codonGroups).map(([codonIndex, bases]) => {
-                                const aminoAcid = feature.translation?.[parseInt(codonIndex)];
-                                if (!aminoAcid) return null;
-
-                                const x = (bases[0].position - lineStart) * CHAR_WIDTH;
-                                const width = bases.length * CHAR_WIDTH;
-                                const showLabel = bases.length >= 2;
-
-                                return (
-                                    <g key={`${feature.id}-codon-${codonIndex}`}>
-                                        <rect
-                                            x={x}
-                                            y={aminoAcidsY}
-                                            width={width}
-                                            height={AMINO_ACID_HEIGHT}
-                                            fill={AMINO_ACID_COLORS[aminoAcid] || '#E6E6E6'}
-                                            opacity={isSelected ? 0.3 : 0.8}
-                                        />
-                                        {showLabel && (
-                                            <text
-                                                x={x + (width / 2)}
-                                                y={aminoAcidsY + AMINO_ACID_HEIGHT / 2}
-                                                textAnchor="middle"
-                                                dominantBaseline="middle"
-                                                fontSize="10"
-                                                fill="#000"
-                                                style={{ pointerEvents: 'none' }}
-                                            >
-                                                {aminoAcid}
-                                            </text>
-                                        )}
-                                    </g>
-                                );
-                            })}
-                        </g>
-                    );
-                })}
-
-                {/* Features */}
+                {/* Features (including translations) */}
                 {lineFeatures.map(feature => {
                     if (!visibleFeatureTypes.has(feature.type)) return null;
 
                     const track = trackAssignments.get(feature.id) ?? 0;
-                    const featureY = track * (FEATURE_TRACK_HEIGHT + 2); // Add 2px gap between tracks
+                    const featureY = track * (FEATURE_TRACK_HEIGHT + 2);
 
-                    const featureStart = Math.max(0, feature.start - lineStart);
-                    const featureEnd = Math.min(basesPerLine, feature.end - lineStart);
-                    const startX = featureStart * CHAR_WIDTH;
-                    const width = (featureEnd - featureStart) * CHAR_WIDTH;
-
-                    const isSelected = selectedRegion?.start === feature.start &&
-                        selectedRegion?.end === feature.end;
-
-                    // Calculate truncated label if needed
-                    let labelText = feature.label || '';
-                    const maxLabelWidth = width - 4; // Leave 2px padding on each side
-                    const approximateCharWidth = 6; // Approximate width of each character
-                    const maxChars = Math.floor(maxLabelWidth / approximateCharWidth);
-
-                    if (labelText.length * approximateCharWidth > maxLabelWidth) {
-                        labelText = labelText.slice(0, maxChars - 2) + '..';
+                    if (feature.type === 'translation' && feature.translation) {
+                        return renderAminoAcidSequence(feature, featureY, lineStart, lineEnd);
+                    } else {
+                        return renderRegularFeature(feature, featureY, lineStart, lineEnd);
                     }
-
-                    return (
-                        <g
-                            key={feature.id}
-                            data-feature-id={feature.id}
-                            onMouseDown={(e) => {
-                                // Allow both selection and click handling
-                                handleMouseDown(e);
-                                // Don't stop propagation - let the event bubble
-                            }}
-                            onClick={(e) => handleFeatureClick(feature, e)}
-                            style={{ cursor: 'pointer' }}
-                        >
-                            <rect
-                                x={startX}
-                                y={featureY}
-                                width={width}
-                                height={FEATURE_TRACK_HEIGHT - 2}
-                                fill={colorManager.getFeatureColor(feature.type)}
-                                opacity={isSelected ? 0.3 : 0.8}
-                                rx={2}
-                            />
-                            {labelText && width > 10 && (
-                                <text
-                                    x={startX + width / 2}
-                                    y={featureY + FEATURE_TRACK_HEIGHT / 2}
-                                    textAnchor="middle"
-                                    dominantBaseline="middle"
-                                    fontSize="10"
-                                    fill="#333"
-                                    style={{ userSelect: 'none' }}
-                                >
-                                    {labelText}
-                                </text>
-                            )}
-                        </g>
-                    );
                 })}
 
                 {/* Backbone line */}
@@ -524,7 +371,7 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
                     })}
                 </g>
 
-                {/* Position markers - only on left side */}
+                {/* Position markers */}
                 <g transform={`translate(0, ${positionY})`} pointerEvents="none">
                     <text
                         x="-5"
@@ -537,6 +384,137 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
                         {(lineStart + 1).toLocaleString()}
                     </text>
                 </g>
+            </g>
+        );
+    };
+
+    // Helper function to render amino acid sequence
+    const renderAminoAcidSequence = (feature: Feature, y: number, lineStart: number, lineEnd: number) => {
+        if (!feature.translation) return null;
+
+        // Calculate the visible portion of the feature for this line
+        const featureStart = Math.max(lineStart, feature.start);
+        const featureEnd = Math.min(lineEnd, feature.end);
+
+        if (featureStart >= featureEnd) return null;
+
+        const isSelected = selectedRegion?.start === feature.start &&
+            selectedRegion?.end === feature.end;
+
+        // For each base position in the visible region, determine which codon it belongs to
+        const visibleBases = Array.from({ length: featureEnd - featureStart }, (_, i) => {
+            const absolutePos = featureStart + i;
+            const relativePos = absolutePos - feature.start;
+            return {
+                position: absolutePos,
+                codonIndex: Math.floor(relativePos / 3),
+                posInCodon: relativePos % 3
+            };
+        });
+
+        // Group bases by codon
+        const codonGroups = visibleBases.reduce((groups, base) => {
+            if (!groups[base.codonIndex]) {
+                groups[base.codonIndex] = [];
+            }
+            groups[base.codonIndex].push(base);
+            return groups;
+        }, {} as Record<number, typeof visibleBases>);
+
+        return (
+            <g
+                key={`aa-${feature.id}`}
+                onClick={(e) => handleFeatureClick(feature, e)}
+                style={{ cursor: 'pointer' }}
+            >
+                {Object.entries(codonGroups).map(([codonIndex, bases]) => {
+                    const aminoAcid = feature.translation?.[parseInt(codonIndex)];
+                    if (!aminoAcid) return null;
+
+                    const x = (bases[0].position - lineStart) * CHAR_WIDTH;
+                    const width = bases.length * CHAR_WIDTH;
+                    const showLabel = bases.length >= 2;
+
+                    return (
+                        <g key={`${feature.id}-codon-${codonIndex}`}>
+                            <rect
+                                x={x}
+                                y={y}
+                                width={width}
+                                height={FEATURE_TRACK_HEIGHT - 2}
+                                fill={AMINO_ACID_COLORS[aminoAcid] || '#E6E6E6'}
+                                opacity={isSelected ? 0.3 : 0.8}
+                            />
+                            {showLabel && (
+                                <text
+                                    x={x + (width / 2)}
+                                    y={y + FEATURE_TRACK_HEIGHT / 2}
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                    fontSize="10"
+                                    fill="#000"
+                                    style={{ pointerEvents: 'none' }}
+                                >
+                                    {aminoAcid}
+                                </text>
+                            )}
+                        </g>
+                    );
+                })}
+            </g>
+        );
+    };
+
+    // Helper function to render regular feature
+    const renderRegularFeature = (feature: Feature, y: number, lineStart: number, lineEnd: number) => {
+        const featureStart = Math.max(0, feature.start - lineStart);
+        const featureEnd = Math.min(basesPerLine, feature.end - lineStart);
+        const startX = featureStart * CHAR_WIDTH;
+        const width = (featureEnd - featureStart) * CHAR_WIDTH;
+
+        const isSelected = selectedRegion?.start === feature.start &&
+            selectedRegion?.end === feature.end;
+
+        // Calculate truncated label if needed
+        let labelText = feature.label || '';
+        const maxLabelWidth = width - 4; // Leave 2px padding on each side
+        const approximateCharWidth = 6; // Approximate width of each character
+        const maxChars = Math.floor(maxLabelWidth / approximateCharWidth);
+
+        if (labelText.length * approximateCharWidth > maxLabelWidth) {
+            labelText = labelText.slice(0, maxChars - 2) + '..';
+        }
+
+        return (
+            <g
+                key={feature.id}
+                data-feature-id={feature.id}
+                onMouseDown={(e) => handleMouseDown(e)}
+                onClick={(e) => handleFeatureClick(feature, e)}
+                style={{ cursor: 'pointer' }}
+            >
+                <rect
+                    x={startX}
+                    y={y}
+                    width={width}
+                    height={FEATURE_TRACK_HEIGHT - 2}
+                    fill={colorManager.getFeatureColor(feature.type)}
+                    opacity={isSelected ? 0.3 : 0.8}
+                    rx={2}
+                />
+                {labelText && width > 10 && (
+                    <text
+                        x={startX + width / 2}
+                        y={y + FEATURE_TRACK_HEIGHT / 2}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fontSize="10"
+                        fill="#333"
+                        style={{ userSelect: 'none' }}
+                    >
+                        {labelText}
+                    </text>
+                )}
             </g>
         );
     };

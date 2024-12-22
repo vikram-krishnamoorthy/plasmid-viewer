@@ -111,6 +111,19 @@ const PlasmidViewer: React.FC = () => {
         });
     };
 
+    // Add this handler for the circular viewer
+    const handleCircularViewerMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+        if (!_selectionHandler.isSelecting()) return;
+        const position = _selectionHandler.mouseToPosition(e, e.currentTarget);
+        const newSelection = _selectionHandler.handleSelectionMove(position);
+        if (newSelection) {
+            setSelectedRegion(newSelection);
+        }
+    };
+
+    // Filter out translation features for the circular view
+    const circularViewFeatures = features.filter(f => f.type !== 'translation');
+
     return (
         <div className="w-full h-screen p-6 flex flex-col">
             {/* Title Section */}
@@ -168,7 +181,7 @@ const PlasmidViewer: React.FC = () => {
                     </div>
 
                     <CircularPlasmidViewer
-                        features={features}
+                        features={circularViewFeatures}
                         plasmidName={plasmidName}
                         plasmidLength={plasmidLength}
                         visibleFeatureTypes={visibleFeatureTypes}
@@ -178,7 +191,7 @@ const PlasmidViewer: React.FC = () => {
                         colorManager={colorManager}
                         onFeatureClick={handleCircularFeatureClick}
                         onMouseDown={handleCircularViewerMouseDown}
-                        onMouseMove={handleMouseMove}
+                        onMouseMove={handleCircularViewerMouseMove}
                         onMouseUp={handleMouseUp}
                         onMouseLeave={handleMouseUp}
                     />

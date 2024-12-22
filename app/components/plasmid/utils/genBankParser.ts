@@ -57,6 +57,22 @@ export class GenBankParser implements SequenceParser {
         let currentTranslation = '';
         let collectingTranslation = false;
 
+        const createTranslationFeature = (
+            baseFeature: Feature, 
+            translation: string
+        ): Feature => {
+            return {
+                id: `feature-${featureCounter++}`,
+                type: 'translation',
+                start: baseFeature.start,
+                end: baseFeature.end,
+                complement: baseFeature.complement,
+                label: `${baseFeature.label || 'Unknown'} translation`,
+                color: '#BDC3C7',
+                translation // Keep the translation property for rendering amino acids
+            };
+        };
+
         lines.forEach(line => {
             if (line.startsWith('LOCUS')) {
                 const matches = line.match(/^LOCUS\s+(\S+)\s+(\d+)/);
@@ -89,7 +105,8 @@ export class GenBankParser implements SequenceParser {
                     // New feature starts
                     if (currentFeature) {
                         if (collectingTranslation) {
-                            currentFeature.translation = currentTranslation;
+                            // Create a separate translation feature
+                            features.push(createTranslationFeature(currentFeature, currentTranslation));
                         }
                         features.push(currentFeature);
                     }
@@ -129,7 +146,7 @@ export class GenBankParser implements SequenceParser {
         // Handle the last feature
         if (currentFeature) {
             if (collectingTranslation) {
-                currentFeature.translation = currentTranslation;
+                features.push(createTranslationFeature(currentFeature, currentTranslation));
             }
             features.push(currentFeature);
         }
