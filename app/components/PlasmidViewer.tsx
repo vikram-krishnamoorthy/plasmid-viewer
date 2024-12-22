@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { PlasmidBackbone } from './plasmid/PlasmidBackbone';
@@ -10,13 +9,15 @@ import { SelectionHighlight } from './plasmid/SelectionHighlight';
 import { PlasmidInfo } from './plasmid/PlasmidInfo';
 import { PLASMID_CONSTANTS } from './plasmid/utils/constants';
 import { usePlasmidViewer } from '../hooks/usePlasmidViewer';
-import { LinearPlasmidViewer } from './plasmid/LinearPlasmidViewer';
+import { LinearPlasmidViewer, LinearPlasmidViewerRef } from './plasmid/LinearPlasmidViewer';
+import type { Feature } from './plasmid/types';
 
 const PlasmidViewer: React.FC = () => {
     const {
         sequence,
         features,
         plasmidName,
+        plasmidDefinition,
         plasmidLength,
         dnaSequence,
         visibleFeatureTypes,
@@ -32,9 +33,7 @@ const PlasmidViewer: React.FC = () => {
         colorManager,
         handleFileUpload,
         handleTextInput,
-        handleFeatureClick,
         handleCheckboxChange,
-        handleMouseDown,
         handleMouseMove,
         handleMouseUp,
         showLabels,
@@ -42,6 +41,7 @@ const PlasmidViewer: React.FC = () => {
     } = usePlasmidViewer();
 
     const svgRef = useRef<SVGSVGElement>(null);
+    const linearViewerRef = useRef<LinearPlasmidViewerRef>(null);
 
     // Handle copy event
     useEffect(() => {
@@ -72,8 +72,27 @@ const PlasmidViewer: React.FC = () => {
         );
     };
 
+    // This handler is for the circular viewer only
+    const handleCircularViewerMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+        const svg = e.currentTarget;
+        const position = _selectionHandler.mouseToPosition(e, svg);
+        _selectionHandler.handleSelectionStart(position);
+        linearViewerRef.current?.scrollToPosition(position);
+    };
+
+    // This handler is for the circular viewer only
+    const handleCircularFeatureClick = (feature: Feature) => {
+        setSelectedRegion({
+            start: feature.start,
+            end: feature.end
+        });
+        linearViewerRef.current?.scrollToPosition(feature.start);
+    };
+
+    // Linear viewer handlers - NO SCROLLING HERE
     const handleLinearViewerMouseDown = (position: number) => {
         _selectionHandler.handleSelectionStart(position);
+        // NO SCROLLING!
     };
 
     const handleLinearViewerMouseMove = (position: number) => {
@@ -82,15 +101,61 @@ const PlasmidViewer: React.FC = () => {
         if (newSelection) {
             setSelectedRegion(newSelection);
         }
+        // NO SCROLLING!
+    };
+
+    // Separate handler for linear feature clicks (no scrolling)
+    const handleLinearFeatureClick = (feature: Feature) => {
+        setSelectedRegion({
+            start: feature.start,
+            end: feature.end
+        });
+        // No scrolling!
     };
 
     return (
-        <Card className="w-full max-w-4xl">
-            <CardHeader>
-                <CardTitle>Plasmid Map Viewer</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="mb-4 space-y-4">
+        <div className="w-full h-screen p-6 flex flex-col">
+            {/* Title Section - Updated with "Viewing Plasmid:" prefix */}
+            <div className="mb-4">
+                <h1 className="text-2xl font-bold">
+                    {plasmidLength > 0 ? (
+                        <>Viewing Plasmid: {plasmidDefinition || plasmidName}</>
+                    ) : (
+                        "Plasmid Map Viewer"
+                    )}
+                </h1>
+            </div>
+
+            {/* Features Toggle Section */}
+            <div className="mb-4 border-y py-4">
+                <div className="font-semibold mb-2">Features:</div>
+                <div className="flex flex-wrap gap-4">
+                    {featureTypes.map(type => (
+                        <div key={type} className="flex items-center space-x-2">
+                            <Checkbox
+                                id={`feature-${type}`}
+                                checked={visibleFeatureTypes.has(type)}
+                                onCheckedChange={(checked) => handleCheckboxChange(checked, type)}
+                                style={{
+                                    '--checkbox-color': colorManager.getFeatureColor(type)
+                                } as React.CSSProperties}
+                                className="data-[state=checked]:bg-[var(--checkbox-color)] data-[state=checked]:border-[var(--checkbox-color)]"
+                            />
+                            <label
+                                htmlFor={`feature-${type}`}
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                                {type}
+                            </label>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Main Content Section */}
+            <div className="flex gap-6 flex-1 min-h-0">
+                {/* Left Column */}
+                <div className="w-[600px] flex flex-col gap-4">
                     <div className="flex items-center gap-4">
                         <Button
                             variant="outline"
@@ -110,114 +175,100 @@ const PlasmidViewer: React.FC = () => {
                             or
                         </span>
                     </div>
+
                     <textarea
-                        className="w-full h-48 p-2 border rounded"
+                        className="w-full h-32 p-2 border rounded"
                         placeholder="Paste GenBank format sequence here..."
                         value={sequence}
                         onChange={(e) => handleTextInput(e.target.value)}
                     />
-                </div>
 
-                <div className="mb-4 flex items-center justify-between">
-                    <div className="flex flex-wrap gap-4">
-                        {featureTypes.map(type => (
-                            <div key={type} className="flex items-center space-x-2">
-                                <Checkbox
-                                    id={`feature-${type}`}
-                                    checked={visibleFeatureTypes.has(type)}
-                                    onCheckedChange={(checked) => handleCheckboxChange(checked, type)}
-                                    style={{
-                                        '--checkbox-color': colorManager.getFeatureColor(type)
-                                    } as React.CSSProperties}
-                                    className="data-[state=checked]:bg-[var(--checkbox-color)] data-[state=checked]:border-[var(--checkbox-color)]"
-                                />
-                                <label
-                                    htmlFor={`feature-${type}`}
-                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                >
-                                    {type}
-                                </label>
-                            </div>
-                        ))}
+                    {/* Show Labels checkbox moved here */}
+                    <div className="flex items-center justify-end">
+                        <div className="flex items-center space-x-2">
+                            <Checkbox
+                                id="show-labels"
+                                checked={showLabels}
+                                onCheckedChange={(checked) => setShowLabels(!!checked)}
+                            />
+                            <label
+                                htmlFor="show-labels"
+                                className="text-sm font-medium leading-none"
+                            >
+                                Show Circular Map Labels
+                            </label>
+                        </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                        <Checkbox
-                            id="show-labels"
-                            checked={showLabels}
-                            onCheckedChange={(checked) => setShowLabels(!!checked)}
-                        />
-                        <label
-                            htmlFor="show-labels"
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                            Show Labels
-                        </label>
-                    </div>
-                </div>
 
-                <div className="relative w-full aspect-square bg-white mb-8">
-                    <svg
-                        ref={svgRef}
-                        viewBox="0 0 600 600"
-                        className="w-full h-full select-none"
-                        style={{ userSelect: 'none' }}
-                        onMouseDown={handleMouseDown}
-                        onMouseMove={handleMouseMove}
-                        onMouseUp={handleMouseUp}
-                        onMouseLeave={handleMouseUp}
-                    >
-                        <PlasmidBackbone plasmidLength={plasmidLength} />
-
-                        {selectedRegion && (
-                            <SelectionHighlight selectionPath={getSelectionPath()} />
-                        )}
-
-                        {labelPositioner.calculateLabelPositions(features, visibleFeatureTypes, plasmidLength)
-                            .map((labelPosition) => (
-                                <PlasmidFeature
-                                    key={labelPosition.feature.id}
-                                    labelPosition={labelPosition}
-                                    isSelected={selectedRegion?.start === labelPosition.feature.start &&
-                                        selectedRegion?.end === labelPosition.feature.end}
-                                    onClick={() => handleFeatureClick(labelPosition.feature)}
-                                    showLabels={showLabels}
-                                />
-                            ))}
-
-                        <PlasmidInfo name={plasmidName} length={plasmidLength} />
-                    </svg>
-                </div>
-
-                {plasmidLength > 0 && (
-                    <div className="relative w-full overflow-x-auto">
-                        <LinearPlasmidViewer
-                            features={features}
-                            plasmidLength={plasmidLength}
-                            visibleFeatureTypes={visibleFeatureTypes}
-                            selectedRegion={selectedRegion}
-                            colorManager={colorManager}
-                            onFeatureClick={handleFeatureClick}
-                            sequence={dnaSequence}
-                            onMouseDown={handleLinearViewerMouseDown}
-                            onMouseMove={handleLinearViewerMouseMove}
+                    <div className="relative flex-1 bg-white">
+                        <svg
+                            ref={svgRef}
+                            viewBox="0 0 600 600"
+                            className="w-full h-full select-none"
+                            style={{ userSelect: 'none' }}
+                            onMouseDown={handleCircularViewerMouseDown}
+                            onMouseMove={handleMouseMove}
                             onMouseUp={handleMouseUp}
-                        />
-                    </div>
-                )}
+                            onMouseLeave={handleMouseUp}
+                        >
+                            <PlasmidBackbone plasmidLength={plasmidLength} />
 
-                {selectedRegion && (
-                    <div className="mt-4 p-4 bg-gray-50 rounded-md">
-                        <p className="text-sm text-gray-600">
-                            Selected region: {selectedRegion.start} - {selectedRegion.end}
-                            ({selectedRegion.end - selectedRegion.start + 1} bp)
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                            Press Ctrl+C to copy the sequence
-                        </p>
+                            {selectedRegion && (
+                                <SelectionHighlight selectionPath={getSelectionPath()} />
+                            )}
+
+                            {labelPositioner.calculateLabelPositions(features, visibleFeatureTypes, plasmidLength)
+                                .map((labelPosition) => (
+                                    <PlasmidFeature
+                                        key={labelPosition.feature.id}
+                                        labelPosition={labelPosition}
+                                        isSelected={selectedRegion?.start === labelPosition.feature.start &&
+                                            selectedRegion?.end === labelPosition.feature.end}
+                                        onClick={() => handleCircularFeatureClick(labelPosition.feature)}
+                                        showLabels={showLabels}
+                                    />
+                                ))}
+
+                            <PlasmidInfo name={plasmidName} length={plasmidLength} />
+                        </svg>
+                    </div>
+                </div>
+
+                {/* Right Column - Linear View */}
+                {plasmidLength > 0 && (
+                    <div className="flex-1 border rounded">
+                        <div className="w-full h-full">
+                            <LinearPlasmidViewer
+                                ref={linearViewerRef}
+                                features={features}
+                                plasmidLength={plasmidLength}
+                                visibleFeatureTypes={visibleFeatureTypes}
+                                selectedRegion={selectedRegion}
+                                colorManager={colorManager}
+                                onFeatureClick={handleLinearFeatureClick}
+                                sequence={dnaSequence}
+                                onMouseDown={handleLinearViewerMouseDown}
+                                onMouseMove={handleLinearViewerMouseMove}
+                                onMouseUp={handleMouseUp}
+                            />
+                        </div>
                     </div>
                 )}
-            </CardContent>
-        </Card>
+            </div>
+
+            {/* Selection Info - Updated to be 1-indexed */}
+            {selectedRegion && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 p-4 bg-white shadow-lg rounded-md border">
+                    <p className="text-sm text-gray-600">
+                        Selected region: {selectedRegion.start + 1} - {selectedRegion.end + 1}
+                        ({selectedRegion.end - selectedRegion.start + 1} bp)
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                        Press Ctrl+C to copy the sequence
+                    </p>
+                </div>
+            )}
+        </div>
     );
 };
 

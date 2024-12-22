@@ -4,6 +4,7 @@ export interface SequenceParser {
     parse(input: string): {
         features: Feature[];
         name: string;
+        definition: string;
         length: number;
         sequence: string;
     };
@@ -47,6 +48,7 @@ export class GenBankParser implements SequenceParser {
         let name = '';
         let seqLength = 0;
         let sequence = '';
+        let definition = '';
 
         lines.forEach(line => {
             if (line.startsWith('LOCUS')) {
@@ -107,9 +109,15 @@ export class GenBankParser implements SequenceParser {
             features.push(currentFeature);
         }
 
+        const definitionMatch = input.match(/DEFINITION\s+(.*?)(?=\n\w+\s+|$)/s);
+        if (definitionMatch) {
+            definition = definitionMatch[1].trim().replace(/\n\s+/g, ' ');
+        }
+
         return {
             features,
             name,
+            definition,
             length: seqLength,
             sequence: sequence.toUpperCase()
         };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { Feature, SelectedRegion } from './types';
 import { ColorManager } from './utils/featureColorManager';
 
@@ -15,7 +15,11 @@ interface LinearPlasmidViewerProps {
     onMouseUp: () => void;
 }
 
-export const LinearPlasmidViewer: React.FC<LinearPlasmidViewerProps> = ({
+export interface LinearPlasmidViewerRef {
+    scrollToPosition: (position: number) => void;
+}
+
+export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlasmidViewerProps>(({
     features,
     plasmidLength,
     visibleFeatureTypes,
@@ -26,14 +30,15 @@ export const LinearPlasmidViewer: React.FC<LinearPlasmidViewerProps> = ({
     onMouseDown,
     onMouseMove,
     onMouseUp,
-}) => {
-    const BASES_PER_LINE = 60;
+}, ref) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [basesPerLine, setBasesPerLine] = useState(100);
+    
+    // Constants for layout
     const CHAR_WIDTH = 8;
-    const LINE_WIDTH = BASES_PER_LINE * CHAR_WIDTH;
     const MARGIN_LEFT = 50;
     const MARGIN_RIGHT = 20;
     const MARGIN_TOP = 20;
-    const TOTAL_WIDTH = LINE_WIDTH + MARGIN_LEFT + MARGIN_RIGHT;
     
     const FEATURE_TRACK_HEIGHT = 16;
     const MAX_FEATURE_TRACKS = 3;
@@ -48,9 +53,48 @@ export const LinearPlasmidViewer: React.FC<LinearPlasmidViewerProps> = ({
                             FEATURE_SECTION_GAP + 
                             LINE_SPACING;
 
-    const visibleFeatures = features.filter(f => visibleFeatureTypes.has(f.type));
+    // Calculate totalLines
+    const totalLines = Math.ceil(plasmidLength / basesPerLine);
+    
+    useEffect(() => {
+        const updateBasesPerLine = () => {
+            if (!containerRef.current) return;
+            const width = containerRef.current.clientWidth;
+            const newBasesPerLine = Math.floor((width - MARGIN_LEFT - MARGIN_RIGHT) / CHAR_WIDTH);
+            setBasesPerLine(Math.max(50, newBasesPerLine));
+        };
 
-    const totalLines = Math.ceil(plasmidLength / BASES_PER_LINE);
+        updateBasesPerLine();
+        window.addEventListener('resize', updateBasesPerLine);
+        return () => window.removeEventListener('resize', updateBasesPerLine);
+    }, []);
+
+    useImperativeHandle(ref, () => ({
+        scrollToPosition: (position: number) => {
+            if (!containerRef.current) return;
+            
+            // Calculate which line contains this position
+            const lineNumber = Math.floor(position / basesPerLine);
+            const scrollPosition = lineNumber * TOTAL_LINE_HEIGHT;
+            
+            // Get the container's viewport height
+            const viewportHeight = containerRef.current.clientHeight;
+            // Get the total scrollable height
+            const totalHeight = totalLines * TOTAL_LINE_HEIGHT;
+            
+            // Calculate maximum scroll position
+            const maxScroll = totalHeight - viewportHeight;
+            
+            // Ensure we don't scroll past the end
+            containerRef.current.scrollTop = Math.min(scrollPosition, maxScroll);
+        }
+    }), [basesPerLine, totalLines, TOTAL_LINE_HEIGHT]);
+
+    // Calculate other dimensions based on basesPerLine
+    const LINE_WIDTH = basesPerLine * CHAR_WIDTH;
+    const TOTAL_WIDTH = LINE_WIDTH + MARGIN_LEFT + MARGIN_RIGHT;
+
+    const visibleFeatures = features.filter(f => visibleFeatureTypes.has(f.type));
 
     // Function to check if features overlap
     const doFeaturesOverlap = (f1: Feature, f2: Feature): boolean => {
@@ -117,7 +161,7 @@ export const LinearPlasmidViewer: React.FC<LinearPlasmidViewerProps> = ({
         }
 
         const baseIndex = Math.floor(xOffset / CHAR_WIDTH);
-        const pos = lineIndex * BASES_PER_LINE + baseIndex;
+        const pos = lineIndex * basesPerLine + baseIndex;
         return Math.min(Math.max(0, pos), plasmidLength - 1);
     };
 
@@ -196,8 +240,8 @@ export const LinearPlasmidViewer: React.FC<LinearPlasmidViewerProps> = ({
     
     // Render a single line of the sequence viewer
     const renderLine = (lineIndex: number) => {
-        const lineStart = lineIndex * BASES_PER_LINE;
-        const lineEnd = Math.min(lineStart + BASES_PER_LINE, plasmidLength);
+        const lineStart = lineIndex * basesPerLine;
+        const lineEnd = Math.min(lineStart + basesPerLine, plasmidLength);
         const lineSequence = sequence.slice(lineStart, lineEnd);
         const y = lineIndex * TOTAL_LINE_HEIGHT + MARGIN_TOP;
 
@@ -289,7 +333,7 @@ export const LinearPlasmidViewer: React.FC<LinearPlasmidViewerProps> = ({
                     const featureY = track * (FEATURE_TRACK_HEIGHT + 2); // Add 2px gap between tracks
                     
                     const featureStart = Math.max(0, feature.start - lineStart);
-                    const featureEnd = Math.min(BASES_PER_LINE, feature.end - lineStart);
+                    const featureEnd = Math.min(basesPerLine, feature.end - lineStart);
                     const startX = featureStart * CHAR_WIDTH;
                     const width = (featureEnd - featureStart) * CHAR_WIDTH;
 
@@ -410,27 +454,35 @@ export const LinearPlasmidViewer: React.FC<LinearPlasmidViewerProps> = ({
     };
 
     return (
-        <svg 
-            viewBox={`0 0 ${TOTAL_WIDTH} ${totalLines * TOTAL_LINE_HEIGHT + MARGIN_TOP}`}
-            className="w-full select-none"
+        <div 
+            ref={containerRef} 
+            className="w-full h-full overflow-auto"
             style={{ 
                 minWidth: TOTAL_WIDTH,
-                cursor: 'text'
             }}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={onMouseUp}
-            onMouseLeave={onMouseUp}
         >
-            {/* Add a background rect to catch all mouse events */}
-            <rect
-                x={0}
-                y={0}
-                width={TOTAL_WIDTH}
-                height={totalLines * TOTAL_LINE_HEIGHT + MARGIN_TOP}
-                fill="transparent"
-            />
-            {Array.from({ length: totalLines }).map((_, i) => renderLine(i))}
-        </svg>
+            <svg 
+                viewBox={`0 0 ${TOTAL_WIDTH} ${totalLines * TOTAL_LINE_HEIGHT + MARGIN_TOP}`}
+                className="w-full select-none"
+                style={{ 
+                    minWidth: TOTAL_WIDTH,
+                    cursor: 'text'
+                }}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={onMouseUp}
+                onMouseLeave={onMouseUp}
+            >
+                {/* Add a background rect to catch all mouse events */}
+                <rect
+                    x={0}
+                    y={0}
+                    width={TOTAL_WIDTH}
+                    height={totalLines * TOTAL_LINE_HEIGHT + MARGIN_TOP}
+                    fill="transparent"
+                />
+                {Array.from({ length: totalLines }).map((_, i) => renderLine(i))}
+            </svg>
+        </div>
     );
-}; 
+}); 

@@ -1,8 +1,10 @@
 import { Feature } from '../types';
+import type { SequenceParser } from './genBankParser';
 
 export interface SequenceInputResult {
     features: Feature[];
     name: string;
+    definition: string;
     length: number;
     sequence: string;
 }

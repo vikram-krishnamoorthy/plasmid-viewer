@@ -23,6 +23,7 @@ export function usePlasmidViewer() {
     const [isLoading, setIsLoading] = useState(false);
     const [_featureColors, setFeatureColors] = useState<Record<string, string>>({});
     const [showLabels, setShowLabels] = useState<boolean>(false);
+    const [plasmidDefinition, setPlasmidDefinition] = useState<string>('');
 
     // Services
     const geometry = useMemo(() => new CircularGeometry(PLASMID_CONSTANTS), []);
@@ -41,6 +42,7 @@ export function usePlasmidViewer() {
 
     const updatePlasmidData = (result: SequenceInputResult) => {
         setPlasmidName(result.name);
+        setPlasmidDefinition(result.definition);
         setPlasmidLength(result.length);
         const colorMap = colorManager.generateColors(result.features);
         setFeatureColors(colorMap);
@@ -163,5 +165,6 @@ export function usePlasmidViewer() {
         handleMouseUp,
         showLabels,
         setShowLabels,
+        plasmidDefinition,
     };
 } 
