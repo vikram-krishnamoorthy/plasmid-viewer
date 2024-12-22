@@ -81,6 +81,14 @@ const PlasmidViewer: React.FC = () => {
         linearViewerRef.current?.scrollToPosition(feature.start);
     };
 
+    // Remove scrolling from linear viewer click handler
+    const handleLinearFeatureClick = (feature: Feature) => {
+        setSelectedRegion({
+            start: feature.start,
+            end: feature.end - 1
+        });
+    };
+
     // Add this handler for the FeatureFilterBar
     const handleToggleFeature = (type: string) => {
         const newVisibleFeatures = new Set(visibleFeatureTypes);
@@ -185,7 +193,7 @@ const PlasmidViewer: React.FC = () => {
                                 visibleFeatureTypes={visibleFeatureTypes}
                                 selectedRegion={selectedRegion}
                                 colorManager={colorManager}
-                                onFeatureClick={handleCircularFeatureClick}
+                                onFeatureClick={handleLinearFeatureClick}
                                 sequence={dnaSequence}
                                 onMouseDown={handleLinearViewerMouseDown}
                                 onMouseMove={handleLinearViewerMouseMove}
