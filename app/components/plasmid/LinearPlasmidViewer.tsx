@@ -1,7 +1,6 @@
 import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { Feature, SelectedRegion } from './types';
 import { ColorManager } from './utils/featureColorManager';
-import { AMINO_ACID_COLORS } from './utils/constants';
 import { LinearPlasmidLabelAnnotation, LinearPlasmidTranslationAnnotation } from './LinearPlasmidAnnotations';
 import { calculateAnnotationDimensions, calculateTrackY, assignTracks } from './LinearPlasmidAnnotations/utils';
 
@@ -104,14 +103,14 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
     const visibleFeatures = features.filter(f => visibleFeatureTypes.has(f.type));
 
     // Add label width calculation
-    const getLabelWidth = (feature: Feature): number => {
+    const _getLabelWidth = (feature: Feature): number => {
         const label = feature.label || '';
         // Approximate width based on character count (adjust CHAR_WIDTH as needed)
         return label.length * CHAR_WIDTH;
     };
 
     // Update overlap detection to include labels
-    const doFeaturesOverlap = (f1: Feature, f2: Feature, lineStart: number, lineEnd: number): boolean => {
+    const _doFeaturesOverlap = (f1: Feature, f2: Feature, lineStart: number, lineEnd: number): boolean => {
         // Get the visible portions of each feature in this line
         const f1VisibleStart = Math.max(lineStart, f1.start);
         const f1VisibleEnd = Math.min(lineEnd, f1.end < f1.start ? f1.end + plasmidLength : f1.end);
@@ -213,11 +212,11 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
     };
 
     // Add these constants near the top of the file
-    const LABEL_SPACING = 15; // Minimum vertical spacing between labels
-    const LABEL_OFFSET = 5;  // Vertical offset from feature
-    const LINE_HEIGHT = 100; // Total height of each line
-    const SEQUENCE_Y = 80;   // Y position of the sequence line
-    const HIGHLIGHT_PADDING = 10; // Padding above and below the sequence line
+    const _LABEL_SPACING = 15; // Minimum vertical spacing between labels
+    const _LABEL_OFFSET = 5;  // Vertical offset from feature
+    const _LINE_HEIGHT = 100; // Total height of each line
+    const _SEQUENCE_Y = 80;   // Y position of the sequence line
+    const _HIGHLIGHT_PADDING = 10; // Padding above and below the sequence line
 
     // Modify these constants for better highlight padding
     const SELECTION_PADDING_TOP = 10; // Padding above the topmost feature
@@ -429,4 +428,5 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
             </svg>
         </div>
     );
-}); 
+});
+LinearPlasmidViewer.displayName = "LinearPlasmidViewer"; 

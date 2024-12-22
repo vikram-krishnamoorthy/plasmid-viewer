@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useRef, useEffect } from 'react';
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { usePlasmidViewer } from '../hooks/usePlasmidViewer';
 import { LinearPlasmidViewer, LinearPlasmidViewerRef } from './plasmid/LinearPlasmidViewer';
@@ -11,7 +10,7 @@ import { CircularPlasmidViewer } from './plasmid/CircularPlasmidViewer';
 
 const PlasmidViewer: React.FC = () => {
     const {
-        sequence,
+        sequence: _sequence,
         features,
         plasmidName,
         plasmidDefinition,
@@ -24,20 +23,20 @@ const PlasmidViewer: React.FC = () => {
         isLoading,
         featureTypes,
         geometry,
-        labelPositioner,
+        labelPositioner: _labelPositioner,
         selectionHandler: _selectionHandler,
         clipboardManager,
         colorManager,
         handleFileUpload,
-        handleTextInput,
-        handleCheckboxChange,
+        handleTextInput: _handleTextInput,
+        handleCheckboxChange: _handleCheckboxChange,
         handleMouseUp,
         handleLinearViewerMouseDown,
         handleLinearViewerMouseMove,
-        handleCopy,
+        handleCopy: _handleCopy,
     } = usePlasmidViewer();
 
-    const svgRef = useRef<SVGSVGElement>(null);
+    const _svgRef = useRef<SVGSVGElement>(null);
     const linearViewerRef = useRef<LinearPlasmidViewerRef>(null);
 
     // Update selection handler features when they change

@@ -93,7 +93,7 @@ export const CircularPlasmidViewer: React.FC<CircularPlasmidViewerProps> = ({
                                 feature={feature}
                                 radius={radius}
                                 isSelected={isSelected}
-                                onClick={(e) => onFeatureClick(feature)}
+                                onClick={(_e) => onFeatureClick(feature)}
                                 onHover={(label) => {
                                     setHoveredFeature(label);
                                     setHoveredFeatureDetails({
@@ -123,7 +123,7 @@ export const CircularPlasmidViewer: React.FC<CircularPlasmidViewerProps> = ({
                             radius={radius}
                             isSelected={isSelected}
                             color={colorManager.getFeatureColor(feature.type)}
-                            onClick={(e) => onFeatureClick(feature)}
+                            onClick={(_e) => onFeatureClick(feature)}
                             onHover={(label) => {
                                 setHoveredFeature(label);
                                 setHoveredFeatureDetails({

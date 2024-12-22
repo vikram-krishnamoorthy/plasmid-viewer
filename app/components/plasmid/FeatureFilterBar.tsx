@@ -1,5 +1,4 @@
 import React from 'react';
-import { Feature } from './types';
 import { ColorManager } from './utils/featureColorManager';
 
 interface FeatureFilterBarProps {
