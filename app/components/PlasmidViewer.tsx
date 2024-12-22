@@ -245,20 +245,6 @@ const PlasmidViewer: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* Selection Info - Darker border */}
-      {selectedRegion && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 p-4 bg-white shadow-lg rounded-md border-2 border-gray-200">
-          <p className="text-sm text-gray-700">
-            Selected region: {selectedRegion.start + 1} - {selectedRegion.end + 1}(
-            {selectedRegion.end >= selectedRegion.start
-              ? selectedRegion.end - selectedRegion.start + 1
-              : plasmidLength - selectedRegion.start + selectedRegion.end + 1}{' '}
-            bp)
-          </p>
-          <p className="text-xs text-gray-600 mt-1">Press Ctrl+C to copy the sequence</p>
-        </div>
-      )}
     </div>
   );
 };

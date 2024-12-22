@@ -154,6 +154,21 @@ export const PlasmidInfo: React.FC<PlasmidInfoProps> = ({
                 >
                   {`${selectedRegion.start + 1} - ${selectedRegion.end}`}
                 </text>
+
+                {/* Add copy instruction only for non-feature selections */}
+                {!selectedFeature && (
+                  <text
+                    x="300"
+                    y="365"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize="10"
+                    fill="#666"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    {`(${navigator.platform.toLowerCase().includes('mac') ? 'cmd' : 'ctrl'} + c to copy)`}
+                  </text>
+                )}
               </>
             )
           )}
