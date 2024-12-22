@@ -11,7 +11,7 @@ interface LinearPlasmidViewerProps {
     colorManager: ColorManager;
     onFeatureClick: (feature: Feature) => void;
     sequence: string;
-    onMouseDown: (position: number) => void;
+    onMouseDown: (position: number, isTranslationLabel?: boolean) => void;
     onMouseMove: (position: number) => void;
     onMouseUp: () => void;
 }
@@ -101,64 +101,96 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
 
     const visibleFeatures = features.filter(f => visibleFeatureTypes.has(f.type));
 
-    // Function to check if features overlap
-    const doFeaturesOverlap = (f1: Feature, f2: Feature): boolean => {
-        const f1End = f1.end < f1.start ? f1.end + plasmidLength : f1.end;
-        const f2End = f2.end < f2.start ? f2.end + plasmidLength : f2.end;
-        return f1.start <= f2End && f2.start <= f1End;
+    // Add label width calculation
+    const getLabelWidth = (feature: Feature): number => {
+        const label = feature.label || '';
+        // Approximate width based on character count (adjust CHAR_WIDTH as needed)
+        return label.length * CHAR_WIDTH;
     };
 
-    // Assign tracks to features within a line segment with priority for translated features and longer features
+    // Update overlap detection to include labels
+    const doFeaturesOverlap = (f1: Feature, f2: Feature, lineStart: number, lineEnd: number): boolean => {
+        // Get the visible portions of each feature in this line
+        const f1VisibleStart = Math.max(lineStart, f1.start);
+        const f1VisibleEnd = Math.min(lineEnd, f1.end < f1.start ? f1.end + plasmidLength : f1.end);
+        const f2VisibleStart = Math.max(lineStart, f2.start);
+        const f2VisibleEnd = Math.min(lineEnd, f2.end < f2.start ? f2.end + plasmidLength : f2.end);
+
+        // Check if the visible portions overlap
+        return f1VisibleStart < f2VisibleEnd && f2VisibleStart < f1VisibleEnd;
+    };
+
+    // Assign tracks to features within a line segment
     const assignTracks = (lineFeatures: Feature[]): Map<string, number> => {
         const trackAssignments = new Map<string, number>();
 
-        // Sort features by:
-        // 1. Type is 'translation' (highest priority)
-        // 2. Size (second priority)
-        // 3. Start position (last priority)
-        const sortedFeatures = [...lineFeatures].sort((a, b) => {
-            // First compare by type
-            if (a.type === 'translation' && b.type !== 'translation') return -1;
-            if (a.type !== 'translation' && b.type === 'translation') return 1;
+        // Helper to determine if two features overlap
+        const doFeaturesOverlap = (f1: Feature, f2: Feature): boolean => {
+            const f1End = f1.end < f1.start ? f1.end + plasmidLength : f1.end;
+            const f2End = f2.end < f2.start ? f2.end + plasmidLength : f2.end;
+            return f1.start <= f2End && f2.start <= f1End;
+        };
 
-            // Then compare by size
-            const getSize = (f: Feature) => {
-                const size = f.end < f.start ?
-                    (plasmidLength - f.start) + f.end :
-                    f.end - f.start;
-                return size;
-            };
+        // Helper to get feature size
+        const getSize = (f: Feature): number => {
+            return f.end < f.start ? (plasmidLength - f.start) + f.end : f.end - f.start;
+        };
 
-            const sizeA = getSize(a);
-            const sizeB = getSize(b);
-
-            // Sort by size (descending)
-            if (sizeB !== sizeA) {
-                return sizeB - sizeA;
+        // Helper to determine which feature has priority to stay in current track
+        const hasTrackPriority = (f1: Feature, f2: Feature): boolean => {
+            const size1 = getSize(f1);
+            const size2 = getSize(f2);
+            
+            // If sizes are different, larger size wins
+            if (size1 !== size2) {
+                return size1 > size2;
             }
-            // Then by start position (ascending)
-            return a.start - b.start;
+            
+            // If sizes are equal, translations win
+            if (size1 === size2) {
+                if (f1.type === 'translation' && f2.type !== 'translation') return true;
+                if (f1.type !== 'translation' && f2.type === 'translation') return false;
+            }
+            
+            // If everything is equal, maintain stable ordering using IDs
+            return f1.id < f2.id;
+        };
+
+        // Start all features at track 0
+        lineFeatures.forEach(feature => {
+            if (visibleFeatureTypes.has(feature.type)) {
+                trackAssignments.set(feature.id, 0);
+            }
         });
 
-        // Assign tracks based on sorted order and available space
-        sortedFeatures.forEach(feature => {
-            if (!visibleFeatureTypes.has(feature.type)) return;
+        let hasOverlaps = true;
+        let currentTrack = 0;
 
-            // Try tracks from bottom (closest to sequence) up
-            for (let track = MAX_FEATURE_TRACKS - 1; track >= 0; track--) {
-                const canUseTrack = ![...trackAssignments.entries()].some(
-                    ([id, t]) => {
-                        const existingFeature = lineFeatures.find(f => f.id === id);
-                        return t === track && existingFeature && doFeaturesOverlap(feature, existingFeature);
+        while (hasOverlaps && currentTrack < MAX_FEATURE_TRACKS) {
+            hasOverlaps = false;
+            
+            // Get all features in current track
+            const featuresInTrack = lineFeatures.filter(f => 
+                trackAssignments.get(f.id) === currentTrack
+            );
+
+            // Check each pair of features in this track for overlaps
+            for (let i = 0; i < featuresInTrack.length; i++) {
+                for (let j = i + 1; j < featuresInTrack.length; j++) {
+                    const f1 = featuresInTrack[i];
+                    const f2 = featuresInTrack[j];
+
+                    if (doFeaturesOverlap(f1, f2)) {
+                        hasOverlaps = true;
+                        // Move the lower priority feature up one track
+                        const featureToMove = hasTrackPriority(f1, f2) ? f2 : f1;
+                        trackAssignments.set(featureToMove.id, currentTrack + 1);
                     }
-                );
-
-                if (canUseTrack) {
-                    trackAssignments.set(feature.id, track);
-                    break;
                 }
             }
-        });
+
+            currentTrack++;
+        }
 
         return trackAssignments;
     };
@@ -205,10 +237,23 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
         const pos = coordsToSequencePos(coords.x, coords.y);
 
         if (pos !== null) {
-            setMouseDownTime(Date.now());
+            // Walk up the DOM tree to find the nearest feature group
+            let target = e.target as Element;
+            let featureGroup = null;
+            while (target && target !== e.currentTarget) {
+                if (target.getAttribute('data-feature-type') === 'translation') {
+                    featureGroup = target;
+                    break;
+                }
+                target = target.parentElement!;
+            }
+
+            const isTranslationLabel = featureGroup !== null;
+
             setMouseDownPos(pos);
+            setMouseDownTime(Date.now());
             setIsDragging(false);
-            onMouseDown(pos);
+            onMouseDown(pos, isTranslationLabel);
         }
     };
 
@@ -314,12 +359,13 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
                     if (!visibleFeatureTypes.has(feature.type)) return null;
 
                     const track = trackAssignments.get(feature.id) ?? 0;
-                    const featureY = track * (FEATURE_TRACK_HEIGHT + 2);
+                    const invertedTrack = MAX_FEATURE_TRACKS - 1 - track;
+                    const featureY = invertedTrack * (FEATURE_TRACK_HEIGHT + 2);
 
                     if (feature.type === 'translation' && feature.translation) {
-                        return renderAminoAcidSequence(feature, featureY, lineStart, lineEnd);
+                        return renderAminoAcidSequence(feature, featureY, lineStart, lineEnd, trackAssignments);
                     } else {
-                        return renderRegularFeature(feature, featureY, lineStart, lineEnd);
+                        return renderRegularFeature(feature, featureY, lineStart, lineEnd, trackAssignments);
                     }
                 })}
 
@@ -389,7 +435,13 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
     };
 
     // Helper function to render amino acid sequence
-    const renderAminoAcidSequence = (feature: Feature, y: number, lineStart: number, lineEnd: number) => {
+    const renderAminoAcidSequence = (
+        feature: Feature, 
+        y: number, 
+        lineStart: number, 
+        lineEnd: number,
+        trackAssignments: Map<string, number>
+    ) => {
         if (!feature.translation) return null;
 
         // Calculate the visible portion of the feature for this line
@@ -401,9 +453,16 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
         const isSelected = selectedRegion?.start === feature.start &&
             selectedRegion?.end === feature.end;
 
+        // Calculate the offset to ensure codons align properly
+        const relativeStart = featureStart - feature.start;
+        const codonOffset = relativeStart % 3;
+        
+        // Adjust featureStart to align with codon boundaries
+        const alignedStart = featureStart - codonOffset;
+        
         // For each base position in the visible region, determine which codon it belongs to
-        const visibleBases = Array.from({ length: featureEnd - featureStart }, (_, i) => {
-            const absolutePos = featureStart + i;
+        const visibleBases = Array.from({ length: featureEnd - alignedStart }, (_, i) => {
+            const absolutePos = alignedStart + i;
             const relativePos = absolutePos - feature.start;
             return {
                 position: absolutePos,
@@ -414,16 +473,21 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
 
         // Group bases by codon
         const codonGroups = visibleBases.reduce((groups, base) => {
-            if (!groups[base.codonIndex]) {
-                groups[base.codonIndex] = [];
+            // Only include bases that are actually within our feature and line
+            if (base.position >= featureStart && base.position < featureEnd) {
+                if (!groups[base.codonIndex]) {
+                    groups[base.codonIndex] = [];
+                }
+                groups[base.codonIndex].push(base);
             }
-            groups[base.codonIndex].push(base);
             return groups;
         }, {} as Record<number, typeof visibleBases>);
 
         return (
             <g
                 key={`aa-${feature.id}`}
+                data-feature-id={feature.id}
+                data-feature-type="translation"
                 onClick={(e) => handleFeatureClick(feature, e)}
                 style={{ cursor: 'pointer' }}
             >
@@ -436,7 +500,10 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
                     const showLabel = bases.length >= 2;
 
                     return (
-                        <g key={`${feature.id}-codon-${codonIndex}`}>
+                        <g
+                            key={`${feature.id}-codon-${codonIndex}`}
+                            data-feature-type="translation"
+                        >
                             <rect
                                 x={x}
                                 y={y}
@@ -466,11 +533,21 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
     };
 
     // Helper function to render regular feature
-    const renderRegularFeature = (feature: Feature, y: number, lineStart: number, lineEnd: number) => {
+    const renderRegularFeature = (
+        feature: Feature, 
+        y: number, 
+        lineStart: number, 
+        lineEnd: number,
+        trackAssignments: Map<string, number>
+    ) => {
         const featureStart = Math.max(0, feature.start - lineStart);
         const featureEnd = Math.min(basesPerLine, feature.end - lineStart);
         const startX = featureStart * CHAR_WIDTH;
         const width = (featureEnd - featureStart) * CHAR_WIDTH;
+
+        const track = trackAssignments.get(feature.id) ?? 0;
+        const invertedTrack = MAX_FEATURE_TRACKS - 1 - track;
+        const featureY = invertedTrack * (FEATURE_TRACK_HEIGHT + 2);
 
         const isSelected = selectedRegion?.start === feature.start &&
             selectedRegion?.end === feature.end;
@@ -489,7 +566,7 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
             <g
                 key={feature.id}
                 data-feature-id={feature.id}
-                onMouseDown={(e) => handleMouseDown(e)}
+                data-feature-type={feature.type}
                 onClick={(e) => handleFeatureClick(feature, e)}
                 style={{ cursor: 'pointer' }}
             >

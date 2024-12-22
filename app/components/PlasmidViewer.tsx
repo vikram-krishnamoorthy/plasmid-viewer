@@ -1,13 +1,12 @@
 'use client'
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { usePlasmidViewer } from '../hooks/usePlasmidViewer';
 import { LinearPlasmidViewer, LinearPlasmidViewerRef } from './plasmid/LinearPlasmidViewer';
 import type { Feature } from './plasmid/types';
 import { FeatureFilterBar } from './plasmid/FeatureFilterBar';
-import { LabelPosition } from './plasmid/types';
 import { CircularPlasmidViewer } from './plasmid/CircularPlasmidViewer';
 
 const PlasmidViewer: React.FC = () => {
@@ -32,36 +31,44 @@ const PlasmidViewer: React.FC = () => {
         handleFileUpload,
         handleTextInput,
         handleCheckboxChange,
-        handleMouseMove,
         handleMouseUp,
+        handleLinearViewerMouseDown,
+        handleLinearViewerMouseMove,
+        handleCopy,
     } = usePlasmidViewer();
 
     const svgRef = useRef<SVGSVGElement>(null);
     const linearViewerRef = useRef<LinearPlasmidViewerRef>(null);
 
+    // Update selection handler features when they change
+    useEffect(() => {
+        _selectionHandler.setFeatures(features);
+    }, [features, _selectionHandler]);
+
     // Handle copy event
     useEffect(() => {
-        const handleCopy = (e: ClipboardEvent): void => {
+        const handleCopyEvent = (e: ClipboardEvent): void => {
             if (selectedRegion && dnaSequence) {
                 e.preventDefault();
                 clipboardManager.copySequence(
                     dnaSequence,
                     selectedRegion.start,
                     selectedRegion.end,
-                    plasmidLength
+                    plasmidLength,
+                    features
                 );
             }
         };
 
-        document.addEventListener('copy', handleCopy);
-        return () => document.removeEventListener('copy', handleCopy);
-    }, [selectedRegion, dnaSequence, plasmidLength, clipboardManager]);
+        document.addEventListener('copy', handleCopyEvent);
+        return () => document.removeEventListener('copy', handleCopyEvent);
+    }, [selectedRegion, dnaSequence, plasmidLength, clipboardManager, features]);
 
     // This handler is for the circular viewer only
     const handleCircularViewerMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
         const svg = e.currentTarget;
         const position = _selectionHandler.mouseToPosition(e, svg);
-        _selectionHandler.handleSelectionStart(position);
+        _selectionHandler.handleSelectionStart(position, false);
         linearViewerRef.current?.scrollToPosition(position);
     };
 
@@ -72,30 +79,6 @@ const PlasmidViewer: React.FC = () => {
             end: feature.end - 1
         });
         linearViewerRef.current?.scrollToPosition(feature.start);
-    };
-
-    // Linear viewer handlers - NO SCROLLING HERE
-    const handleLinearViewerMouseDown = (position: number) => {
-        _selectionHandler.handleSelectionStart(position);
-        // NO SCROLLING!
-    };
-
-    const handleLinearViewerMouseMove = (position: number) => {
-        if (!_selectionHandler.isSelecting()) return;
-        const newSelection = _selectionHandler.handleSelectionMove(position);
-        if (newSelection) {
-            setSelectedRegion(newSelection);
-        }
-        // NO SCROLLING!
-    };
-
-    // Separate handler for linear feature clicks (no scrolling)
-    const handleLinearFeatureClick = (feature: Feature) => {
-        setSelectedRegion({
-            start: feature.start,
-            end: feature.end - 1
-        });
-        // No scrolling!
     };
 
     // Add this handler for the FeatureFilterBar
@@ -208,7 +191,7 @@ const PlasmidViewer: React.FC = () => {
                                 visibleFeatureTypes={visibleFeatureTypes}
                                 selectedRegion={selectedRegion}
                                 colorManager={colorManager}
-                                onFeatureClick={handleLinearFeatureClick}
+                                onFeatureClick={handleCircularFeatureClick}
                                 sequence={dnaSequence}
                                 onMouseDown={handleLinearViewerMouseDown}
                                 onMouseMove={handleLinearViewerMouseMove}

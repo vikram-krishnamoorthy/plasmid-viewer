@@ -1,6 +1,7 @@
+import { Feature } from '../types';
+
 export interface ClipboardManager {
-    copySequence(sequence: string, start: number, end: number, length: number): void;
-    showCopyFeedback(): void;
+    copySequence(sequence: string, start: number, end: number, length: number, features: Feature[]): void;
 }
 
 export class CircularClipboardManager implements ClipboardManager {
@@ -8,12 +9,46 @@ export class CircularClipboardManager implements ClipboardManager {
 
     constructor(private onCopyComplete?: () => void) {}
 
-    private getSequenceSegment(sequence: string, start: number, end: number, length: number): string {
+    private findTranslationFeature(start: number, end: number, features: Feature[]): Feature | null {
+        // Look for any translation feature that overlaps with our selection
+        return features.find(f => 
+            f.type === 'translation' && 
+            start >= f.start && 
+            end <= f.end
+        ) || null;
+    }
+
+    private snapToCodonBoundaries(start: number, end: number, feature: Feature): { start: number; end: number } {
+        // Calculate codon positions relative to feature start
+        const relativeStart = start - feature.start;
+        const relativeEnd = end - feature.start;
+        
+        // Snap to nearest codon boundaries
+        const codonStart = feature.start + (Math.floor(relativeStart / 3) * 3);
+        const codonEnd = feature.start + (Math.ceil((relativeEnd + 1) / 3) * 3) - 1;
+        
+        return {
+            start: codonStart,
+            end: Math.min(codonEnd, feature.end)
+        };
+    }
+
+    private getSequenceSegment(sequence: string, start: number, end: number, length: number, features: Feature[]): string {
+        // Check if this selection corresponds to a translation feature
+        const translationFeature = this.findTranslationFeature(start, end, features);
+        
+        if (translationFeature) {
+            // Snap to codon boundaries for translation features
+            const { start: codonStart, end: codonEnd } = this.snapToCodonBoundaries(start, end, translationFeature);
+            start = codonStart;
+            end = codonEnd;
+        }
+
         // Normalize positions (keep 0-indexed for internal calculations)
         const startIndex = start % length;
-        const endIndex = end % length;
+        const endIndex = (end + 1) % length; // Add 1 to make the selection inclusive
 
-        // Calculate both possible distances (inclusive)
+        // Calculate both possible distances
         const directDistance = (endIndex - startIndex + length) % length;
         const complementDistance = length - directDistance;
 
@@ -30,13 +65,12 @@ export class CircularClipboardManager implements ClipboardManager {
         }
     }
 
-    copySequence(sequence: string, start: number, end: number, length: number): void {
-        const seq = this.getSequenceSegment(sequence, start, end, length);
+    copySequence(sequence: string, start: number, end: number, length: number, features: Feature[]): void {
+        const seq = this.getSequenceSegment(sequence, start, end, length, features);
         
         // Use the new Clipboard API if available
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(seq).then(() => {
-                this.showCopyFeedback();
                 this.onCopyComplete?.();
             });
         } else {
@@ -52,7 +86,6 @@ export class CircularClipboardManager implements ClipboardManager {
 
             try {
                 document.execCommand('copy');
-                this.showCopyFeedback();
                 this.onCopyComplete?.();
             } catch (err) {
                 console.error('Failed to copy sequence:', err);
@@ -60,30 +93,5 @@ export class CircularClipboardManager implements ClipboardManager {
 
             document.body.removeChild(textArea);
         }
-    }
-
-    showCopyFeedback(): void {
-        const feedbackDiv = document.createElement('div');
-        feedbackDiv.textContent = 'Sequence copied!';
-        feedbackDiv.style.position = 'fixed';
-        feedbackDiv.style.bottom = '20px';
-        feedbackDiv.style.left = '50%';
-        feedbackDiv.style.transform = 'translateX(-50%)';
-        feedbackDiv.style.backgroundColor = '#4CAF50';
-        feedbackDiv.style.color = 'white';
-        feedbackDiv.style.padding = '10px 20px';
-        feedbackDiv.style.borderRadius = '5px';
-        feedbackDiv.style.zIndex = '1000';
-
-        document.body.appendChild(feedbackDiv);
-
-        if (this.feedbackTimeout) {
-            clearTimeout(this.feedbackTimeout);
-        }
-
-        this.feedbackTimeout = window.setTimeout(() => {
-            document.body.removeChild(feedbackDiv);
-            this.feedbackTimeout = null;
-        }, 2000);
     }
 } 

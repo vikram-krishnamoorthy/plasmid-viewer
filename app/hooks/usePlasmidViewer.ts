@@ -114,17 +114,12 @@ export function usePlasmidViewer() {
         });
     };
 
-    const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
-        const svg = e.currentTarget;
-        const position = selectionHandler.mouseToPosition(e, svg);
-        selectionHandler.handleSelectionStart(position);
+    const handleLinearViewerMouseDown = (position: number, isTranslationLabel: boolean = false) => {
+        selectionHandler.handleSelectionStart(position, isTranslationLabel);
     };
 
-    const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const handleLinearViewerMouseMove = (position: number) => {
         if (!selectionHandler.isSelecting()) return;
-
-        const svg = e.currentTarget;
-        const position = selectionHandler.mouseToPosition(e, svg);
         const newSelection = selectionHandler.handleSelectionMove(position);
         if (newSelection) {
             setSelectedRegion(newSelection);
@@ -133,6 +128,18 @@ export function usePlasmidViewer() {
 
     const handleMouseUp = () => {
         selectionHandler.handleSelectionEnd();
+    };
+
+    const handleCopy = () => {
+        if (selectedRegion && dnaSequence) {
+            clipboardManager.copySequence(
+                dnaSequence,
+                selectedRegion.start,
+                selectedRegion.end,
+                plasmidLength,
+                features
+            );
+        }
     };
 
     return {
@@ -159,9 +166,10 @@ export function usePlasmidViewer() {
         handleTextInput,
         handleFeatureClick,
         handleCheckboxChange,
-        handleMouseDown,
-        handleMouseMove,
+        handleLinearViewerMouseDown,
+        handleLinearViewerMouseMove,
         handleMouseUp,
         plasmidDefinition,
+        handleCopy,
     };
 } 
