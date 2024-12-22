@@ -12,6 +12,7 @@ import { usePlasmidViewer } from '../hooks/usePlasmidViewer';
 import { LinearPlasmidViewer, LinearPlasmidViewerRef } from './plasmid/LinearPlasmidViewer';
 import type { Feature } from './plasmid/types';
 import { FeatureFilterBar } from './plasmid/FeatureFilterBar';
+import { LabelPosition } from './plasmid/types';
 
 const PlasmidViewer: React.FC = () => {
     const {
@@ -37,12 +38,12 @@ const PlasmidViewer: React.FC = () => {
         handleCheckboxChange,
         handleMouseMove,
         handleMouseUp,
-        showLabels,
-        setShowLabels,
     } = usePlasmidViewer();
 
     const svgRef = useRef<SVGSVGElement>(null);
     const linearViewerRef = useRef<LinearPlasmidViewerRef>(null);
+    const [hoveredFeature, setHoveredFeature] = useState<string | null>(null);
+    const [hoveredFeatureDetails, setHoveredFeatureDetails] = useState<LabelPosition | undefined>(undefined);
 
     // Handle copy event
     useEffect(() => {
@@ -193,23 +194,6 @@ const PlasmidViewer: React.FC = () => {
                         onChange={(e) => handleTextInput(e.target.value)}
                     />
 
-                    {/* Show Labels checkbox moved here */}
-                    <div className="flex items-center justify-end">
-                        <div className="flex items-center space-x-2">
-                            <Checkbox
-                                id="show-labels"
-                                checked={showLabels}
-                                onCheckedChange={(checked) => setShowLabels(!!checked)}
-                            />
-                            <label
-                                htmlFor="show-labels"
-                                className="text-sm font-medium leading-none"
-                            >
-                                Show Circular Map Labels
-                            </label>
-                        </div>
-                    </div>
-
                     <div className="relative flex-1 bg-white">
                         <svg
                             ref={svgRef}
@@ -235,11 +219,19 @@ const PlasmidViewer: React.FC = () => {
                                         isSelected={selectedRegion?.start === labelPosition.feature.start &&
                                             selectedRegion?.end === labelPosition.feature.end}
                                         onClick={() => handleCircularFeatureClick(labelPosition.feature)}
-                                        showLabels={showLabels}
+                                        onHover={(label) => {
+                                            setHoveredFeature(label);
+                                            setHoveredFeatureDetails(label ? labelPosition : undefined);
+                                        }}
                                     />
                                 ))}
 
-                            <PlasmidInfo name={plasmidName} length={plasmidLength} />
+                            <PlasmidInfo 
+                                name={plasmidName} 
+                                length={plasmidLength} 
+                                hoveredFeature={hoveredFeature}
+                                hoveredFeatureDetails={hoveredFeatureDetails}
+                            />
                         </svg>
                     </div>
                 </div>

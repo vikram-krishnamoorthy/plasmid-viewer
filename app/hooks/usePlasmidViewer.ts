@@ -22,7 +22,6 @@ export function usePlasmidViewer() {
     const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [_featureColors, setFeatureColors] = useState<Record<string, string>>({});
-    const [showLabels, setShowLabels] = useState<boolean>(false);
     const [plasmidDefinition, setPlasmidDefinition] = useState<string>('');
 
     // Services
@@ -163,8 +162,6 @@ export function usePlasmidViewer() {
         handleMouseDown,
         handleMouseMove,
         handleMouseUp,
-        showLabels,
-        setShowLabels,
         plasmidDefinition,
     };
 } 

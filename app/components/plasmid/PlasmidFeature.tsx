@@ -8,7 +8,7 @@ interface PlasmidFeatureProps {
     labelPosition: LabelPosition;
     isSelected: boolean;
     onClick: () => void;
-    showLabels: boolean;
+    onHover: (label: string | null) => void;
 }
 
 // Create a singleton instance for generating paths
@@ -18,7 +18,7 @@ export const PlasmidFeature: React.FC<PlasmidFeatureProps> = ({
     labelPosition,
     isSelected,
     onClick,
-    showLabels
+    onHover
 }) => {
     const [isHovered, setIsHovered] = useState(false);
     const {
@@ -36,13 +36,11 @@ export const PlasmidFeature: React.FC<PlasmidFeatureProps> = ({
     const startAngle = coordsToAngle(feature.start, plasmidLength);
     const endAngle = coordsToAngle(feature.end, plasmidLength);
 
-    const shouldShowLabel = showLabels || isHovered;
-
     return (
         <g
             onClick={onClick}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            onMouseEnter={() => onHover(feature.label)}
+            onMouseLeave={() => onHover(null)}
             style={{ cursor: 'pointer', userSelect: 'none' }}
         >
             <path
@@ -53,7 +51,7 @@ export const PlasmidFeature: React.FC<PlasmidFeatureProps> = ({
                 opacity={!isSelected ? "1" : "0.3"}
             />
 
-            {feature.label && shouldShowLabel && (
+            {feature.label && isHovered && (
                 <>
                     <path
                         d={`M ${featureX} ${featureY} L ${radialX} ${radialY} L ${labelX} ${labelY}`}
@@ -62,7 +60,7 @@ export const PlasmidFeature: React.FC<PlasmidFeatureProps> = ({
                         strokeDasharray="2,2"
                         fill="none"
                         className="transition-opacity duration-200"
-                        opacity={showLabels ? "1" : "0.6"}
+                        opacity="1"
                     />
                     <text
                         x={labelX}
@@ -73,7 +71,7 @@ export const PlasmidFeature: React.FC<PlasmidFeatureProps> = ({
                         fill="#333"
                         style={{ pointerEvents: 'none' }}
                         className="transition-opacity duration-200"
-                        opacity={showLabels ? "1" : "0.8"}
+                        opacity="1"
                     >
                         {feature.label}
                     </text>
