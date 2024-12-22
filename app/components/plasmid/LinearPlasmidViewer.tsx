@@ -34,13 +34,13 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
 }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const [basesPerLine, setBasesPerLine] = useState(100);
-    
+
     // Constants for layout
     const CHAR_WIDTH = 8;
     const MARGIN_LEFT = 50;
     const MARGIN_RIGHT = 20;
     const MARGIN_TOP = 20;
-    
+
     const FEATURE_TRACK_HEIGHT = 16;
     const MAX_FEATURE_TRACKS = 3;
     const SEQUENCE_HEIGHT = 12;
@@ -50,17 +50,17 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
     const LINE_SPACING = 40;
     const AMINO_ACID_HEIGHT = 16; // Height of amino acid background
     const AMINO_ACID_GAP = 4; // Gap between amino acids and features
-    const TOTAL_LINE_HEIGHT = FEATURE_TRACK_HEIGHT * MAX_FEATURE_TRACKS + 
-                            SEQUENCE_HEIGHT + 
-                            POSITION_HEIGHT + 
-                            FEATURE_SECTION_GAP + 
-                            LINE_SPACING +
-                            AMINO_ACID_HEIGHT + 
-                            AMINO_ACID_GAP;
+    const TOTAL_LINE_HEIGHT = FEATURE_TRACK_HEIGHT * MAX_FEATURE_TRACKS +
+        SEQUENCE_HEIGHT +
+        POSITION_HEIGHT +
+        FEATURE_SECTION_GAP +
+        LINE_SPACING +
+        AMINO_ACID_HEIGHT +
+        AMINO_ACID_GAP;
 
     // Calculate totalLines
     const totalLines = Math.ceil(plasmidLength / basesPerLine);
-    
+
     useEffect(() => {
         const updateBasesPerLine = () => {
             if (!containerRef.current) return;
@@ -77,19 +77,19 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
     useImperativeHandle(ref, () => ({
         scrollToPosition: (position: number) => {
             if (!containerRef.current) return;
-            
+
             // Calculate which line contains this position
             const lineNumber = Math.floor(position / basesPerLine);
             const scrollPosition = lineNumber * TOTAL_LINE_HEIGHT;
-            
+
             // Get the container's viewport height
             const viewportHeight = containerRef.current.clientHeight;
             // Get the total scrollable height
             const totalHeight = totalLines * TOTAL_LINE_HEIGHT;
-            
+
             // Calculate maximum scroll position
             const maxScroll = totalHeight - viewportHeight;
-            
+
             // Ensure we don't scroll past the end
             containerRef.current.scrollTop = Math.min(scrollPosition, maxScroll);
         }
@@ -111,19 +111,19 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
     // Assign tracks to features within a line segment with priority for longer features
     const assignTracks = (lineFeatures: Feature[]): Map<string, number> => {
         const trackAssignments = new Map<string, number>();
-        
+
         // Sort features by size (largest first) and then by start position
         const sortedFeatures = [...lineFeatures].sort((a, b) => {
             const getSize = (f: Feature) => {
-                const size = f.end < f.start ? 
-                    (plasmidLength - f.start) + f.end : 
+                const size = f.end < f.start ?
+                    (plasmidLength - f.start) + f.end :
                     f.end - f.start;
                 return size;
             };
-            
+
             const sizeA = getSize(a);
             const sizeB = getSize(b);
-            
+
             // Sort by size first (descending)
             if (sizeB !== sizeA) {
                 return sizeB - sizeA;
@@ -131,11 +131,11 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
             // Then by start position (ascending)
             return a.start - b.start;
         });
-        
+
         // Assign tracks based on sorted order and available space
         sortedFeatures.forEach(feature => {
             if (!visibleFeatureTypes.has(feature.type)) return;
-            
+
             // Try tracks from bottom (closest to sequence) up
             for (let track = MAX_FEATURE_TRACKS - 1; track >= 0; track--) {
                 const canUseTrack = ![...trackAssignments.entries()].some(
@@ -144,14 +144,14 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
                         return t === track && existingFeature && doFeaturesOverlap(feature, existingFeature);
                     }
                 );
-                
+
                 if (canUseTrack) {
                     trackAssignments.set(feature.id, track);
                     break;
                 }
             }
         });
-        
+
         return trackAssignments;
     };
 
@@ -159,7 +159,7 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
     const coordsToSequencePos = (mouseX: number, mouseY: number): number | null => {
         const lineIndex = Math.floor((mouseY - MARGIN_TOP) / TOTAL_LINE_HEIGHT);
         const xOffset = mouseX - MARGIN_LEFT;
-        
+
         // Check if click is within valid sequence area
         if (lineIndex < 0 || lineIndex >= totalLines || xOffset < 0 || xOffset > LINE_WIDTH) {
             return null;
@@ -179,7 +179,7 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
             x: bbox.width / rect.width,
             y: bbox.height / rect.height
         };
-        
+
         return {
             x: (e.clientX - rect.left) * scale.x,
             y: (e.clientY - rect.top) * scale.y
@@ -195,7 +195,7 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
     const handleMouseDown = (e: React.MouseEvent<SVGElement>) => {
         const coords = getMouseCoords(e);
         const pos = coordsToSequencePos(coords.x, coords.y);
-        
+
         if (pos !== null) {
             setMouseDownTime(Date.now());
             setMouseDownPos(pos);
@@ -207,7 +207,7 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
     const handleMouseMove = (e: React.MouseEvent<SVGElement>) => {
         const coords = getMouseCoords(e);
         const pos = coordsToSequencePos(coords.x, coords.y);
-        
+
         if (pos !== null && mouseDownPos !== null) {
             setIsDragging(true);
             onMouseMove(pos);
@@ -242,30 +242,6 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
     // Modify these constants for better highlight padding
     const SELECTION_PADDING_TOP = 10; // Padding above the topmost feature
     const SELECTION_PADDING_BOTTOM = 10; // Padding below the sequence line
-    
-    // Add these utility functions at the top of the file
-    const CODON_TABLE: { [key: string]: string } = {
-        'TTT': 'F', 'TTC': 'F', 'TTA': 'L', 'TTG': 'L',
-        'CTT': 'L', 'CTC': 'L', 'CTA': 'L', 'CTG': 'L',
-        'ATT': 'I', 'ATC': 'I', 'ATA': 'I', 'ATG': 'M',
-        'GTT': 'V', 'GTC': 'V', 'GTA': 'V', 'GTG': 'V',
-        'TCT': 'S', 'TCC': 'S', 'TCA': 'S', 'TCG': 'S',
-        'CCT': 'P', 'CCC': 'P', 'CCA': 'P', 'CCG': 'P',
-        'ACT': 'T', 'ACC': 'T', 'ACA': 'T', 'ACG': 'T',
-        'GCT': 'A', 'GCC': 'A', 'GCA': 'A', 'GCG': 'A',
-        'TAT': 'Y', 'TAC': 'Y', 'TAA': '*', 'TAG': '*',
-        'CAT': 'H', 'CAC': 'H', 'CAA': 'Q', 'CAG': 'Q',
-        'AAT': 'N', 'AAC': 'N', 'AAA': 'K', 'AAG': 'K',
-        'GAT': 'D', 'GAC': 'D', 'GAA': 'E', 'GAG': 'E',
-        'TGT': 'C', 'TGC': 'C', 'TGA': '*', 'TGG': 'W',
-        'CGT': 'R', 'CGC': 'R', 'CGA': 'R', 'CGG': 'R',
-        'AGT': 'S', 'AGC': 'S', 'AGA': 'R', 'AGG': 'R',
-        'GGT': 'G', 'GGC': 'G', 'GGA': 'G', 'GGG': 'G'
-    };
-
-    const getCodonTranslation = (codon: string): string => {
-        return CODON_TABLE[codon.toUpperCase()] || '?';
-    };
 
     // Render a single line of the sequence viewer
     const renderLine = (lineIndex: number) => {
@@ -278,7 +254,7 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
         const aminoAcidsY = 0; // Put amino acids at the top
         const featuresY = aminoAcidsY + AMINO_ACID_HEIGHT + AMINO_ACID_GAP; // Move features down
         const sequenceY = featuresY + (FEATURE_TRACK_HEIGHT * MAX_FEATURE_TRACKS) + FEATURE_SECTION_GAP;
-        const backboneY = sequenceY + SEQUENCE_HEIGHT/2;
+        const backboneY = sequenceY + SEQUENCE_HEIGHT / 2;
         const positionY = backboneY;
 
         // Find features that overlap with this line
@@ -295,24 +271,24 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
         const findAvailableY = (x: number, width: number, baseY: number) => {
             let y = baseY;
             let hasOverlap;
-            
+
             do {
                 hasOverlap = labelPositions.some(pos => {
                     // Check if labels overlap horizontally
                     const horizontalOverlap = !(
-                        x + width < pos.x - LABEL_SPACING || 
+                        x + width < pos.x - LABEL_SPACING ||
                         x > pos.x + pos.width + LABEL_SPACING
                     );
                     // Check if labels are too close vertically
                     const verticalOverlap = Math.abs(y - pos.y) < LABEL_SPACING;
                     return horizontalOverlap && verticalOverlap;
                 });
-                
+
                 if (hasOverlap) {
                     y -= LABEL_SPACING; // Move label up if there's overlap
                 }
             } while (hasOverlap);
-            
+
             return y;
         };
 
@@ -340,9 +316,9 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
         }
 
         // Find CDS features with translations that overlap with this line
-        const cdsFeatures = lineFeatures.filter(f => 
-            f.type === 'CDS' && 
-            f.translation && 
+        const cdsFeatures = lineFeatures.filter(f =>
+            f.type === 'CDS' &&
+            f.translation &&
             visibleFeatureTypes.has(f.type)
         );
 
@@ -354,7 +330,7 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
                 {/* Background for sequence */}
                 <rect
                     x={0}
-                    y={sequenceY - SEQUENCE_HEIGHT/2}
+                    y={sequenceY - SEQUENCE_HEIGHT / 2}
                     width={LINE_WIDTH}
                     height={SEQUENCE_HEIGHT}
                     fill="#fff"
@@ -362,56 +338,74 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
 
                 {/* Amino Acid Sequence */}
                 {cdsFeatures.map(feature => {
+                    if (!feature.translation) return null;
+
+                    // Calculate the visible portion of the feature for this line
                     const featureStart = Math.max(lineStart, feature.start);
                     const featureEnd = Math.min(lineEnd, feature.end);
-                    
+
                     if (featureStart >= featureEnd) return null;
 
-                    const startOffset = (featureStart - feature.start) % 3;
-                    const firstCodonStart = featureStart + (3 - startOffset) % 3;
+                    const isSelected = selectedRegion?.start === feature.start &&
+                        selectedRegion?.end === feature.end;
 
-                    const isSelected = selectedRegion?.start === feature.start && 
-                                      selectedRegion?.end === feature.end;
+                    // For each base position in the visible region, determine which codon it belongs to
+                    const visibleBases = Array.from({ length: featureEnd - featureStart }, (_, i) => {
+                        const absolutePos = featureStart + i;
+                        const relativePos = absolutePos - feature.start;
+                        return {
+                            position: absolutePos,
+                            codonIndex: Math.floor(relativePos / 3),
+                            posInCodon: relativePos % 3
+                        };
+                    });
+
+                    // Group bases by codon
+                    const codonGroups = visibleBases.reduce((groups, base) => {
+                        if (!groups[base.codonIndex]) {
+                            groups[base.codonIndex] = [];
+                        }
+                        groups[base.codonIndex].push(base);
+                        return groups;
+                    }, {} as Record<number, typeof visibleBases>);
 
                     return (
-                        <g 
+                        <g
                             key={`aa-${feature.id}`}
                             onClick={() => onFeatureClick(feature)}
                             style={{ cursor: 'pointer' }}
                         >
-                            {Array.from({ length: Math.floor((featureEnd - firstCodonStart) / 3) }).map((_, i) => {
-                                const codonStart = firstCodonStart + (i * 3);
-                                const codon = sequence.slice(codonStart - lineStart, codonStart - lineStart + 3);
-                                
-                                if (codon.length < 3) return null;
+                            {Object.entries(codonGroups).map(([codonIndex, bases]) => {
+                                const aminoAcid = feature.translation?.[parseInt(codonIndex)];
+                                if (!aminoAcid) return null;
 
-                                const aminoAcid = getCodonTranslation(codon);
-                                const x = (codonStart - lineStart) * CHAR_WIDTH;
-                                
+                                const x = (bases[0].position - lineStart) * CHAR_WIDTH;
+                                const width = bases.length * CHAR_WIDTH;
+                                const showLabel = bases.length >= 2;
+
                                 return (
-                                    <g key={codonStart}>
-                                        {/* Background rectangle for each amino acid */}
+                                    <g key={`${feature.id}-codon-${codonIndex}`}>
                                         <rect
                                             x={x}
                                             y={aminoAcidsY}
-                                            width={CHAR_WIDTH * 3}
+                                            width={width}
                                             height={AMINO_ACID_HEIGHT}
-                                            fill={AMINO_ACID_COLORS[aminoAcid]}
+                                            fill={AMINO_ACID_COLORS[aminoAcid] || '#E6E6E6'}
                                             opacity={isSelected ? 0.3 : 0.8}
                                         />
-                                        
-                                        {/* Amino acid label */}
-                                        <text
-                                            x={x + (CHAR_WIDTH * 1.5)}
-                                            y={aminoAcidsY + AMINO_ACID_HEIGHT/2}
-                                            textAnchor="middle"
-                                            dominantBaseline="middle"
-                                            fontSize="10"
-                                            fill="#000"
-                                            style={{ pointerEvents: 'none' }}
-                                        >
-                                            {aminoAcid}
-                                        </text>
+                                        {showLabel && (
+                                            <text
+                                                x={x + (width / 2)}
+                                                y={aminoAcidsY + AMINO_ACID_HEIGHT / 2}
+                                                textAnchor="middle"
+                                                dominantBaseline="middle"
+                                                fontSize="10"
+                                                fill="#000"
+                                                style={{ pointerEvents: 'none' }}
+                                            >
+                                                {aminoAcid}
+                                            </text>
+                                        )}
                                     </g>
                                 );
                             })}
@@ -422,31 +416,31 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
                 {/* Features */}
                 {lineFeatures.map(feature => {
                     if (!visibleFeatureTypes.has(feature.type)) return null;
-                    
+
                     const track = trackAssignments.get(feature.id) ?? 0;
                     const featureY = track * (FEATURE_TRACK_HEIGHT + 2); // Add 2px gap between tracks
-                    
+
                     const featureStart = Math.max(0, feature.start - lineStart);
                     const featureEnd = Math.min(basesPerLine, feature.end - lineStart);
                     const startX = featureStart * CHAR_WIDTH;
                     const width = (featureEnd - featureStart) * CHAR_WIDTH;
 
-                    const isSelected = selectedRegion?.start === feature.start && 
-                                    selectedRegion?.end === feature.end;
+                    const isSelected = selectedRegion?.start === feature.start &&
+                        selectedRegion?.end === feature.end;
 
                     // Calculate truncated label if needed
                     let labelText = feature.label || '';
                     const maxLabelWidth = width - 4; // Leave 2px padding on each side
                     const approximateCharWidth = 6; // Approximate width of each character
                     const maxChars = Math.floor(maxLabelWidth / approximateCharWidth);
-                    
+
                     if (labelText.length * approximateCharWidth > maxLabelWidth) {
                         labelText = labelText.slice(0, maxChars - 2) + '..';
                     }
 
                     return (
-                        <g 
-                            key={feature.id} 
+                        <g
+                            key={feature.id}
                             data-feature-id={feature.id}
                             onMouseDown={(e) => {
                                 // Allow both selection and click handling
@@ -467,8 +461,8 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
                             />
                             {labelText && width > 10 && (
                                 <text
-                                    x={startX + width/2}
-                                    y={featureY + FEATURE_TRACK_HEIGHT/2}
+                                    x={startX + width / 2}
+                                    y={featureY + FEATURE_TRACK_HEIGHT / 2}
                                     textAnchor="middle"
                                     dominantBaseline="middle"
                                     fontSize="10"
@@ -497,7 +491,7 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
                 <g transform={`translate(0, ${sequenceY})`} pointerEvents="none">
                     {lineSequence.split('').map((base, i) => {
                         const position = lineStart + i;
-                        const isSelected = selectedRegion && 
+                        const isSelected = selectedRegion &&
                             isBaseSelected(position, selectedRegion.start, selectedRegion.end);
 
                         return (
@@ -506,7 +500,7 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
                                 {isSelected && (
                                     <rect
                                         x={i * CHAR_WIDTH}
-                                        y={-SEQUENCE_HEIGHT/2}
+                                        y={-SEQUENCE_HEIGHT / 2}
                                         width={CHAR_WIDTH}
                                         height={SEQUENCE_HEIGHT}
                                         fill="#FFD700"
@@ -514,7 +508,7 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
                                     />
                                 )}
                                 <text
-                                    x={i * CHAR_WIDTH + CHAR_WIDTH/2}
+                                    x={i * CHAR_WIDTH + CHAR_WIDTH / 2}
                                     y={0}
                                     textAnchor="middle"
                                     dominantBaseline="middle"
@@ -548,17 +542,17 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
     };
 
     return (
-        <div 
-            ref={containerRef} 
+        <div
+            ref={containerRef}
             className="w-full h-full overflow-auto"
-            style={{ 
+            style={{
                 minWidth: TOTAL_WIDTH,
             }}
         >
-            <svg 
+            <svg
                 viewBox={`0 0 ${TOTAL_WIDTH} ${totalLines * TOTAL_LINE_HEIGHT + MARGIN_TOP}`}
                 className="w-full select-none"
-                style={{ 
+                style={{
                     minWidth: TOTAL_WIDTH,
                     cursor: 'text'
                 }}

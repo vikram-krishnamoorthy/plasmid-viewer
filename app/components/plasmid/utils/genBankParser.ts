@@ -10,6 +10,11 @@ export interface SequenceParser {
     };
 }
 
+// Update the Feature type to explicitly include translation
+interface FeatureWithTranslation extends Feature {
+    translation?: string;
+}
+
 export class GenBankParser implements SequenceParser {
     private cleanSequenceLine(line: string): string {
         return line.replace(/^\s*\d+\s+/, '').replace(/\s+/g, '').toUpperCase();
@@ -42,13 +47,15 @@ export class GenBankParser implements SequenceParser {
         const features: Feature[] = [];
         let featureCounter = 0;
         const lines = input.split('\n');
-        let currentFeature: Feature | null = null;
+        let currentFeature: FeatureWithTranslation | null = null;
         let inFeatures = false;
         let inSequence = false;
         let name = '';
         let seqLength = 0;
         let sequence = '';
         let definition = '';
+        let currentTranslation = '';
+        let collectingTranslation = false;
 
         lines.forEach(line => {
             if (line.startsWith('LOCUS')) {
@@ -79,12 +86,21 @@ export class GenBankParser implements SequenceParser {
 
             if (inFeatures) {
                 if (line.match(/^\s{5}\w/)) {
+                    // New feature starts
                     if (currentFeature) {
+                        if (collectingTranslation) {
+                            currentFeature.translation = currentTranslation;
+                        }
                         features.push(currentFeature);
                     }
+                    
+                    // Reset translation collection
+                    collectingTranslation = false;
+                    currentTranslation = '';
+
+                    // Create new feature
                     const [type, location] = line.trim().split(/\s+/);
                     const { start, end, complement } = this.parseFeatureLocation(location);
-
                     currentFeature = {
                         id: `feature-${featureCounter++}`,
                         type,
@@ -96,18 +112,25 @@ export class GenBankParser implements SequenceParser {
                     };
                 } else if (line.match(/^\s{21}/) && currentFeature) {
                     const qualifier = line.trim();
-                    if (qualifier.startsWith('/label=')) {
+                    if (qualifier.startsWith('/translation=')) {
+                        collectingTranslation = true;
+                        currentTranslation = qualifier.split('=')[1].replace(/["']/g, '').replace(/\s+/g, '');
+                    } else if (collectingTranslation && !qualifier.startsWith('/')) {
+                        currentTranslation += qualifier.replace(/["']/g, '').replace(/\s+/g, '');
+                    } else if (qualifier.startsWith('/label=')) {
                         currentFeature.label = qualifier.split('=')[1].replace(/["']/g, '');
                     } else if (!currentFeature.label && qualifier.startsWith('/note=')) {
                         currentFeature.label = qualifier.split('=')[1].replace(/["']/g, '');
-                    } else if (qualifier.startsWith('/translation=')) {
-                        currentFeature.translation = qualifier.split('=')[1].replace(/["']/g, '');
                     }
                 }
             }
         });
 
+        // Handle the last feature
         if (currentFeature) {
+            if (collectingTranslation) {
+                currentFeature.translation = currentTranslation;
+            }
             features.push(currentFeature);
         }
 
