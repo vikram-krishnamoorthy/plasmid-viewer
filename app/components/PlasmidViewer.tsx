@@ -182,17 +182,7 @@ const PlasmidViewer: React.FC = () => {
                             className="hidden"
                             onChange={handleFileUpload}
                         />
-                        <span className="text-sm text-gray-500">
-                            or
-                        </span>
                     </div>
-
-                    <textarea
-                        className="w-full h-32 p-2 border rounded"
-                        placeholder="Paste GenBank format sequence here..."
-                        value={sequence}
-                        onChange={(e) => handleTextInput(e.target.value)}
-                    />
 
                     <div className="relative flex-1 bg-white">
                         <svg
@@ -226,9 +216,9 @@ const PlasmidViewer: React.FC = () => {
                                     />
                                 ))}
 
-                            <PlasmidInfo 
-                                name={plasmidName} 
-                                length={plasmidLength} 
+                            <PlasmidInfo
+                                name={plasmidName}
+                                length={plasmidLength}
                                 hoveredFeature={hoveredFeature}
                                 hoveredFeatureDetails={hoveredFeatureDetails}
                                 selectedRegion={selectedRegion}
@@ -265,8 +255,8 @@ const PlasmidViewer: React.FC = () => {
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 p-4 bg-white shadow-lg rounded-md border">
                     <p className="text-sm text-gray-600">
                         Selected region: {selectedRegion.start + 1} - {selectedRegion.end + 1}
-                        ({selectedRegion.end >= selectedRegion.start ? 
-                            selectedRegion.end - selectedRegion.start + 1 : 
+                        ({selectedRegion.end >= selectedRegion.start ?
+                            selectedRegion.end - selectedRegion.start + 1 :
                             plasmidLength - selectedRegion.start + selectedRegion.end + 1} bp)
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
