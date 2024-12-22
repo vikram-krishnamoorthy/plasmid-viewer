@@ -83,15 +83,13 @@ const PlasmidViewer: React.FC = () => {
 
     // Add this handler for the FeatureFilterBar
     const handleToggleFeature = (type: string) => {
-        setVisibleFeatureTypes(types => {
-            const newTypes = new Set(types);
-            if (newTypes.has(type)) {
-                newTypes.delete(type);
-            } else {
-                newTypes.add(type);
-            }
-            return newTypes;
-        });
+        const newVisibleFeatures = new Set(visibleFeatureTypes);
+        if (newVisibleFeatures.has(type)) {
+            newVisibleFeatures.delete(type);
+        } else {
+            newVisibleFeatures.add(type);
+        }
+        setVisibleFeatureTypes(newVisibleFeatures);
     };
 
     // Add this handler for the circular viewer
@@ -103,9 +101,6 @@ const PlasmidViewer: React.FC = () => {
             setSelectedRegion(newSelection);
         }
     };
-
-    // Filter out translation features for the circular view
-    const circularViewFeatures = features.filter(f => f.type !== 'translation');
 
     return (
         <div className="w-full h-screen p-6 flex flex-col">
@@ -164,13 +159,12 @@ const PlasmidViewer: React.FC = () => {
                     </div>
 
                     <CircularPlasmidViewer
-                        features={circularViewFeatures}
+                        features={features}
                         plasmidName={plasmidName}
                         plasmidLength={plasmidLength}
                         visibleFeatureTypes={visibleFeatureTypes}
                         selectedRegion={selectedRegion}
                         geometry={geometry}
-                        labelPositioner={labelPositioner}
                         colorManager={colorManager}
                         onFeatureClick={handleCircularFeatureClick}
                         onMouseDown={handleCircularViewerMouseDown}

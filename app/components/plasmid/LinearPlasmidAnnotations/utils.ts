@@ -36,8 +36,8 @@ export const doFeaturesOverlap = (
 };
 
 export const getFeatureSize = (feature: Feature, plasmidLength: number): number => {
-    return feature.end < feature.start 
-        ? (plasmidLength - feature.start) + feature.end 
+    return feature.end < feature.start
+        ? (plasmidLength - feature.start) + feature.end
         : feature.end - feature.start;
 };
 
@@ -48,16 +48,16 @@ export const hasTrackPriority = (
 ): boolean => {
     const size1 = getFeatureSize(f1, plasmidLength);
     const size2 = getFeatureSize(f2, plasmidLength);
-    
+
     // If sizes are different, larger size wins
     if (size1 !== size2) {
         return size1 > size2;
     }
-    
+
     // If sizes are equal, translations win
     if (f1.type === 'translation' && f2.type !== 'translation') return true;
     if (f1.type !== 'translation' && f2.type === 'translation') return false;
-    
+
     // If everything is equal, maintain stable ordering using IDs
     return f1.id < f2.id;
 };
@@ -83,9 +83,9 @@ export const assignTracks = (
 
     while (hasOverlaps && currentTrack < maxTracks) {
         hasOverlaps = false;
-        
+
         // Get all features in current track
-        const featuresInTrack = features.filter(f => 
+        const featuresInTrack = features.filter(f =>
             trackAssignments.get(f.id) === currentTrack
         );
 

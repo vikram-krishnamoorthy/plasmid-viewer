@@ -6,7 +6,7 @@ import { SelectionHighlight } from './SelectionHighlight';
 import { PlasmidInfo } from './PlasmidInfo';
 import { CircularGeometry } from './utils/geometry';
 import { PLASMID_CONSTANTS } from './utils/constants';
-import { CircularPlasmidLabelAnnotation } from './CircularPlasmidAnnotations';
+import { CircularPlasmidLabelAnnotation, CircularPlasmidTranslationAnnotation } from './CircularPlasmidAnnotations';
 import { assignCircularTracks, calculateFeatureRadius } from './CircularPlasmidAnnotations/utils';
 
 interface CircularPlasmidViewerProps {
@@ -43,10 +43,8 @@ export const CircularPlasmidViewer: React.FC<CircularPlasmidViewerProps> = ({
     const [hoveredFeature, setHoveredFeature] = useState<string | null>(null);
     const [hoveredFeatureDetails, setHoveredFeatureDetails] = useState<LabelPosition | undefined>(undefined);
 
-    // Filter out translation features and get track assignments
-    const visibleFeatures = features.filter(f => 
-        visibleFeatureTypes.has(f.type) && f.type !== 'translation'
-    );
+    // Include all visible features - DON'T filter out translations!
+    const visibleFeatures = features.filter(f => visibleFeatureTypes.has(f.type));
     const trackAssignments = assignCircularTracks(
         visibleFeatures,
         visibleFeatureTypes,
@@ -56,9 +54,15 @@ export const CircularPlasmidViewer: React.FC<CircularPlasmidViewerProps> = ({
 
     const getSelectionPath = (): string => {
         if (!selectedRegion) return '';
+        
+        // For selections that cross the origin, we need to adjust the end position
+        const adjustedEnd = selectedRegion.end < selectedRegion.start 
+            ? selectedRegion.end 
+            : selectedRegion.end;
+
         return geometry.createSelectionPath(
             selectedRegion.start,
-            selectedRegion.end,
+            adjustedEnd,
             PLASMID_CONSTANTS.BACKBONE_RADIUS,
             plasmidLength
         );
@@ -87,6 +91,36 @@ export const CircularPlasmidViewer: React.FC<CircularPlasmidViewerProps> = ({
                     const isSelected = selectedRegion?.start === feature.start && 
                                      selectedRegion?.end === feature.end;
 
+                    if (feature.type === 'translation' && feature.translation) {
+                        return (
+                            <CircularPlasmidTranslationAnnotation
+                                key={feature.id}
+                                feature={feature}
+                                radius={radius}
+                                isSelected={isSelected}
+                                onClick={(e) => onFeatureClick(feature)}
+                                onHover={(label) => {
+                                    setHoveredFeature(label);
+                                    setHoveredFeatureDetails({
+                                        feature,
+                                        midAngle: 0,
+                                        featureX: 0,
+                                        featureY: 0,
+                                        radialX: 0,
+                                        radialY: 0,
+                                        labelX: 0,
+                                        labelY: 0,
+                                        rotation: 0,
+                                        textAnchor: "start",
+                                        radius,
+                                        plasmidLength
+                                    });
+                                }}
+                                plasmidLength={plasmidLength}
+                            />
+                        );
+                    }
+
                     return (
                         <CircularPlasmidLabelAnnotation
                             key={feature.id}
@@ -97,25 +131,20 @@ export const CircularPlasmidViewer: React.FC<CircularPlasmidViewerProps> = ({
                             onClick={(e) => onFeatureClick(feature)}
                             onHover={(label) => {
                                 setHoveredFeature(label);
-                                const hoveredFeature = features.find(f => f.label === label);
-                                if (hoveredFeature) {
-                                    setHoveredFeatureDetails({
-                                        feature: hoveredFeature,
-                                        midAngle: 0,
-                                        featureX: 0,
-                                        featureY: 0,
-                                        radialX: 0,
-                                        radialY: 0,
-                                        labelX: 0,
-                                        labelY: 0,
-                                        rotation: 0,
-                                        textAnchor: "start",
-                                        radius: radius,
-                                        plasmidLength: plasmidLength
-                                    });
-                                } else {
-                                    setHoveredFeatureDetails(undefined);
-                                }
+                                setHoveredFeatureDetails({
+                                    feature,
+                                    midAngle: 0,
+                                    featureX: 0,
+                                    featureY: 0,
+                                    radialX: 0,
+                                    radialY: 0,
+                                    labelX: 0,
+                                    labelY: 0,
+                                    rotation: 0,
+                                    textAnchor: "start",
+                                    radius,
+                                    plasmidLength
+                                });
                             }}
                             plasmidLength={plasmidLength}
                         />

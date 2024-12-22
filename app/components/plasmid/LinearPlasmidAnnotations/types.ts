@@ -1,3 +1,5 @@
+import { Feature } from '../types';
+
 export interface AnnotationTrackAssignment {
     trackNumber: number;
     y: number;

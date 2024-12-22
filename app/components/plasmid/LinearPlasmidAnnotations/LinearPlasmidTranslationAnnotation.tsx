@@ -34,10 +34,10 @@ export const LinearPlasmidTranslationAnnotation: React.FC<LinearPlasmidTranslati
     // Calculate the offset to ensure codons align properly
     const relativeStart = featureStart - feature.start;
     const codonOffset = relativeStart % 3;
-    
+
     // Adjust featureStart to align with codon boundaries
     const alignedStart = featureStart - codonOffset;
-    
+
     // For each base position in the visible region, determine which codon it belongs to
     const visibleBases = Array.from({ length: featureEnd - alignedStart }, (_, i) => {
         const absolutePos = alignedStart + i;

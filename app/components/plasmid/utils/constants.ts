@@ -1,3 +1,5 @@
+export const TWO_PI = 2 * Math.PI;
+
 export const PLASMID_CONSTANTS = {
     CENTER: 300,
     BACKBONE_RADIUS: 200,
@@ -11,12 +13,15 @@ export const PLASMID_CONSTANTS = {
     MARKER_COUNT: 12
 } as const;
 
-export const TWO_PI = 2 * Math.PI;
-
 // Helper functions that depend on these constants
 export const coordsToAngle = (pos: number, length: number): number => {
     return (pos / length) * TWO_PI - Math.PI / 2;
 };
+
+export interface Point {
+    x: number;
+    y: number;
+}
 
 export const angleToCoords = (angle: number, radius: number): Point => {
     return {
@@ -24,11 +29,6 @@ export const angleToCoords = (angle: number, radius: number): Point => {
         y: PLASMID_CONSTANTS.CENTER + radius * Math.sin(angle)
     };
 };
-
-export interface Point {
-    x: number;
-    y: number;
-}
 
 // Update the amino acid color mapping with more muted/pastel colors
 export const AMINO_ACID_COLORS: { [key: string]: string } = {
