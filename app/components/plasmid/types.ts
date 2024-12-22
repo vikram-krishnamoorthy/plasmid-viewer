@@ -6,6 +6,7 @@ export interface Feature {
     complement: boolean;
     label: string;
     color: string;
+    translation?: string;
 }
 
 export interface SelectedRegion {

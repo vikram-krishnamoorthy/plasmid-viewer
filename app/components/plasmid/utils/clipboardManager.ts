@@ -9,23 +9,23 @@ export class CircularClipboardManager implements ClipboardManager {
     constructor(private onCopyComplete?: () => void) {}
 
     private getSequenceSegment(sequence: string, start: number, end: number, length: number): string {
-        // Normalize positions
+        // Normalize positions (keep 0-indexed for internal calculations)
         const startIndex = start % length;
         const endIndex = end % length;
 
-        // Calculate both possible distances
+        // Calculate both possible distances (inclusive)
         const directDistance = (endIndex - startIndex + length) % length;
         const complementDistance = length - directDistance;
 
         if (complementDistance < directDistance) {
             // Selection crosses origin - take the complement path
-            return sequence.substring(startIndex) + sequence.substring(0, endIndex + 1);
+            return sequence.substring(startIndex) + sequence.substring(0, endIndex);
         } else {
             // Normal selection or equal distances
             if (startIndex <= endIndex) {
-                return sequence.substring(startIndex, endIndex + 1);
+                return sequence.substring(startIndex, endIndex);
             } else {
-                return sequence.substring(startIndex) + sequence.substring(0, endIndex + 1);
+                return sequence.substring(startIndex) + sequence.substring(0, endIndex);
             }
         }
     }

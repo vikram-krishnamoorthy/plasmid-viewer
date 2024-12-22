@@ -40,7 +40,7 @@ export const PlasmidBackbone: React.FC<PlasmidBackboneProps> = ({ plasmidLength 
                             fill="#666"
                             style={{ pointerEvents: 'none' }}
                         >
-                            {bp.toLocaleString()}
+                            {(bp === 0 ? 1 : bp).toLocaleString()}
                         </text>
                     </g>
                 );

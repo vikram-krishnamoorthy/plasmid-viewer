@@ -86,7 +86,7 @@ const PlasmidViewer: React.FC = () => {
     const handleCircularFeatureClick = (feature: Feature) => {
         setSelectedRegion({
             start: feature.start,
-            end: feature.end
+            end: feature.end - 1
         });
         linearViewerRef.current?.scrollToPosition(feature.start);
     };
@@ -110,7 +110,7 @@ const PlasmidViewer: React.FC = () => {
     const handleLinearFeatureClick = (feature: Feature) => {
         setSelectedRegion({
             start: feature.start,
-            end: feature.end
+            end: feature.end - 1
         });
         // No scrolling!
     };
@@ -231,6 +231,8 @@ const PlasmidViewer: React.FC = () => {
                                 length={plasmidLength} 
                                 hoveredFeature={hoveredFeature}
                                 hoveredFeatureDetails={hoveredFeatureDetails}
+                                selectedRegion={selectedRegion}
+                                features={features}
                             />
                         </svg>
                     </div>
@@ -258,12 +260,14 @@ const PlasmidViewer: React.FC = () => {
                 )}
             </div>
 
-            {/* Selection Info - Updated to be 1-indexed */}
+            {/* Selection Info */}
             {selectedRegion && (
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 p-4 bg-white shadow-lg rounded-md border">
                     <p className="text-sm text-gray-600">
                         Selected region: {selectedRegion.start + 1} - {selectedRegion.end + 1}
-                        ({selectedRegion.end - selectedRegion.start + 1} bp)
+                        ({selectedRegion.end >= selectedRegion.start ? 
+                            selectedRegion.end - selectedRegion.start + 1 : 
+                            plasmidLength - selectedRegion.start + selectedRegion.end + 1} bp)
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
                         Press Ctrl+C to copy the sequence

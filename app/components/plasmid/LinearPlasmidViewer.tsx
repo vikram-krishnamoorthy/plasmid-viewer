@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { Feature, SelectedRegion } from './types';
 import { ColorManager } from './utils/featureColorManager';
+import { AMINO_ACID_COLORS } from './utils/constants';
 
 interface LinearPlasmidViewerProps {
     features: Feature[];
@@ -47,11 +48,15 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
     const POSITION_HEIGHT = 12;
     const FEATURE_SECTION_GAP = 8;
     const LINE_SPACING = 40;
+    const AMINO_ACID_HEIGHT = 16; // Height of amino acid background
+    const AMINO_ACID_GAP = 4; // Gap between amino acids and features
     const TOTAL_LINE_HEIGHT = FEATURE_TRACK_HEIGHT * MAX_FEATURE_TRACKS + 
                             SEQUENCE_HEIGHT + 
                             POSITION_HEIGHT + 
                             FEATURE_SECTION_GAP + 
-                            LINE_SPACING;
+                            LINE_SPACING +
+                            AMINO_ACID_HEIGHT + 
+                            AMINO_ACID_GAP;
 
     // Calculate totalLines
     const totalLines = Math.ceil(plasmidLength / basesPerLine);
@@ -238,6 +243,30 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
     const SELECTION_PADDING_TOP = 10; // Padding above the topmost feature
     const SELECTION_PADDING_BOTTOM = 10; // Padding below the sequence line
     
+    // Add these utility functions at the top of the file
+    const CODON_TABLE: { [key: string]: string } = {
+        'TTT': 'F', 'TTC': 'F', 'TTA': 'L', 'TTG': 'L',
+        'CTT': 'L', 'CTC': 'L', 'CTA': 'L', 'CTG': 'L',
+        'ATT': 'I', 'ATC': 'I', 'ATA': 'I', 'ATG': 'M',
+        'GTT': 'V', 'GTC': 'V', 'GTA': 'V', 'GTG': 'V',
+        'TCT': 'S', 'TCC': 'S', 'TCA': 'S', 'TCG': 'S',
+        'CCT': 'P', 'CCC': 'P', 'CCA': 'P', 'CCG': 'P',
+        'ACT': 'T', 'ACC': 'T', 'ACA': 'T', 'ACG': 'T',
+        'GCT': 'A', 'GCC': 'A', 'GCA': 'A', 'GCG': 'A',
+        'TAT': 'Y', 'TAC': 'Y', 'TAA': '*', 'TAG': '*',
+        'CAT': 'H', 'CAC': 'H', 'CAA': 'Q', 'CAG': 'Q',
+        'AAT': 'N', 'AAC': 'N', 'AAA': 'K', 'AAG': 'K',
+        'GAT': 'D', 'GAC': 'D', 'GAA': 'E', 'GAG': 'E',
+        'TGT': 'C', 'TGC': 'C', 'TGA': '*', 'TGG': 'W',
+        'CGT': 'R', 'CGC': 'R', 'CGA': 'R', 'CGG': 'R',
+        'AGT': 'S', 'AGC': 'S', 'AGA': 'R', 'AGG': 'R',
+        'GGT': 'G', 'GGC': 'G', 'GGA': 'G', 'GGG': 'G'
+    };
+
+    const getCodonTranslation = (codon: string): string => {
+        return CODON_TABLE[codon.toUpperCase()] || '?';
+    };
+
     // Render a single line of the sequence viewer
     const renderLine = (lineIndex: number) => {
         const lineStart = lineIndex * basesPerLine;
@@ -245,12 +274,11 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
         const lineSequence = sequence.slice(lineStart, lineEnd);
         const y = lineIndex * TOTAL_LINE_HEIGHT + MARGIN_TOP;
 
-        // Adjust vertical spacing
-        const featuresY = 0;
+        // Adjust vertical spacing to account for amino acids
+        const aminoAcidsY = 0; // Put amino acids at the top
+        const featuresY = aminoAcidsY + AMINO_ACID_HEIGHT + AMINO_ACID_GAP; // Move features down
         const sequenceY = featuresY + (FEATURE_TRACK_HEIGHT * MAX_FEATURE_TRACKS) + FEATURE_SECTION_GAP;
         const backboneY = sequenceY + SEQUENCE_HEIGHT/2;
-        
-        // Align position number with backbone
         const positionY = backboneY;
 
         // Find features that overlap with this line
@@ -311,6 +339,13 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
             }
         }
 
+        // Find CDS features with translations that overlap with this line
+        const cdsFeatures = lineFeatures.filter(f => 
+            f.type === 'CDS' && 
+            f.translation && 
+            visibleFeatureTypes.has(f.type)
+        );
+
         return (
             <g key={lineIndex} transform={`translate(${MARGIN_LEFT}, ${y})`} style={{ userSelect: 'none' }}>
                 {/* Render selection highlights first (below everything else) */}
@@ -324,6 +359,65 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
                     height={SEQUENCE_HEIGHT}
                     fill="#fff"
                 />
+
+                {/* Amino Acid Sequence */}
+                {cdsFeatures.map(feature => {
+                    const featureStart = Math.max(lineStart, feature.start);
+                    const featureEnd = Math.min(lineEnd, feature.end);
+                    
+                    if (featureStart >= featureEnd) return null;
+
+                    const startOffset = (featureStart - feature.start) % 3;
+                    const firstCodonStart = featureStart + (3 - startOffset) % 3;
+
+                    const isSelected = selectedRegion?.start === feature.start && 
+                                      selectedRegion?.end === feature.end;
+
+                    return (
+                        <g 
+                            key={`aa-${feature.id}`}
+                            onClick={() => onFeatureClick(feature)}
+                            style={{ cursor: 'pointer' }}
+                        >
+                            {Array.from({ length: Math.floor((featureEnd - firstCodonStart) / 3) }).map((_, i) => {
+                                const codonStart = firstCodonStart + (i * 3);
+                                const codon = sequence.slice(codonStart - lineStart, codonStart - lineStart + 3);
+                                
+                                if (codon.length < 3) return null;
+
+                                const aminoAcid = getCodonTranslation(codon);
+                                const x = (codonStart - lineStart) * CHAR_WIDTH;
+                                
+                                return (
+                                    <g key={codonStart}>
+                                        {/* Background rectangle for each amino acid */}
+                                        <rect
+                                            x={x}
+                                            y={aminoAcidsY}
+                                            width={CHAR_WIDTH * 3}
+                                            height={AMINO_ACID_HEIGHT}
+                                            fill={AMINO_ACID_COLORS[aminoAcid]}
+                                            opacity={isSelected ? 0.3 : 0.8}
+                                        />
+                                        
+                                        {/* Amino acid label */}
+                                        <text
+                                            x={x + (CHAR_WIDTH * 1.5)}
+                                            y={aminoAcidsY + AMINO_ACID_HEIGHT/2}
+                                            textAnchor="middle"
+                                            dominantBaseline="middle"
+                                            fontSize="10"
+                                            fill="#000"
+                                            style={{ pointerEvents: 'none' }}
+                                        >
+                                            {aminoAcid}
+                                        </text>
+                                    </g>
+                                );
+                            })}
+                        </g>
+                    );
+                })}
 
                 {/* Features */}
                 {lineFeatures.map(feature => {

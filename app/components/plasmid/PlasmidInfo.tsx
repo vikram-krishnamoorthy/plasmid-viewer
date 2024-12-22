@@ -1,21 +1,35 @@
 import React from 'react';
 import { LabelPosition } from './types';
+import { Feature, SelectedRegion } from './types';
 
 interface PlasmidInfoProps {
     name: string;
     length: number;
     hoveredFeature: string | null;
     hoveredFeatureDetails?: LabelPosition;
+    selectedRegion: SelectedRegion | null;
+    features: Feature[];
 }
 
 export const PlasmidInfo: React.FC<PlasmidInfoProps> = ({ 
     name, 
     length, 
     hoveredFeature,
-    hoveredFeatureDetails 
+    hoveredFeatureDetails,
+    selectedRegion,
+    features
 }) => {
+    // Function to find a feature that matches the selection
+    const findSelectedFeature = (): Feature | null => {
+        if (!selectedRegion) return null;
+        return features.find(f => f.start === selectedRegion.start && f.end === selectedRegion.end) || null;
+    };
+
+    const selectedFeature = findSelectedFeature();
+
     return (
         <g style={{ userSelect: 'none' }}>
+            {/* Plasmid name */}
             <text
                 x="300"
                 y="280"
@@ -29,6 +43,7 @@ export const PlasmidInfo: React.FC<PlasmidInfoProps> = ({
                 {name}
             </text>
 
+            {/* Base pair count */}
             <text
                 x="300"
                 y="300"
@@ -41,7 +56,8 @@ export const PlasmidInfo: React.FC<PlasmidInfoProps> = ({
                 {length ? `${length.toLocaleString()} bp` : ''}
             </text>
 
-            {hoveredFeature && hoveredFeatureDetails && (
+            {/* Info box - show hover state if present, otherwise show selection if present */}
+            {(hoveredFeature || selectedRegion) && (
                 <>
                     <rect
                         x="225"
@@ -54,42 +70,89 @@ export const PlasmidInfo: React.FC<PlasmidInfoProps> = ({
                         rx="4"
                     />
                     
-                    <text
-                        x="300"
-                        y="335"
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        fontSize="12"
-                        fontWeight="bold"
-                        fill="#333"
-                        style={{ pointerEvents: 'none' }}
-                    >
-                        {hoveredFeature}
-                    </text>
+                    {hoveredFeature && hoveredFeatureDetails ? (
+                        // Hover state - show feature details
+                        <>
+                            <text
+                                x="300"
+                                y="335"
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fontSize="12"
+                                fontWeight="bold"
+                                fill="#333"
+                                style={{ pointerEvents: 'none' }}
+                            >
+                                {hoveredFeature}
+                            </text>
 
-                    <text
-                        x="300"
-                        y="350"
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        fontSize="11"
-                        fill="#666"
-                        style={{ pointerEvents: 'none' }}
-                    >
-                        {hoveredFeatureDetails.feature.type}
-                    </text>
+                            <text
+                                x="300"
+                                y="350"
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fontSize="11"
+                                fill="#666"
+                                style={{ pointerEvents: 'none' }}
+                            >
+                                {hoveredFeatureDetails.feature.type}
+                            </text>
 
-                    <text
-                        x="300"
-                        y="365"
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        fontSize="11"
-                        fill="#666"
-                        style={{ pointerEvents: 'none' }}
-                    >
-                        {`${hoveredFeatureDetails.feature.start + 1} - ${hoveredFeatureDetails.feature.end + 1}`}
-                    </text>
+                            <text
+                                x="300"
+                                y="365"
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fontSize="11"
+                                fill="#666"
+                                style={{ pointerEvents: 'none' }}
+                            >
+                                {`${hoveredFeatureDetails.feature.start + 1} - ${hoveredFeatureDetails.feature.end}`}
+                            </text>
+                        </>
+                    ) : selectedRegion && (
+                        // Selection state - show either feature details or selection range
+                        <>
+                            <text
+                                x="300"
+                                y="335"
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fontSize="12"
+                                fontWeight="bold"
+                                fill="#333"
+                                style={{ pointerEvents: 'none' }}
+                            >
+                                {selectedFeature ? selectedFeature.label : 'Highlighted Section'}
+                            </text>
+
+                            {selectedFeature ? (
+                                <text
+                                    x="300"
+                                    y="350"
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                    fontSize="11"
+                                    fill="#666"
+                                    style={{ pointerEvents: 'none' }}
+                                >
+                                    {selectedFeature.type}
+                                </text>
+                            ) : null}
+
+                            <text
+                                x="300"
+                                y={selectedFeature ? 365 : 350}
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fontSize="11"
+                                fill="#666"
+                                style={{ pointerEvents: 'none' }}
+                            >
+                                {`${selectedRegion.start + 1} - ${selectedRegion.end}`}
+                            </text>
+                        </>
+                    )}
                 </>
             )}
         </g>

@@ -98,7 +98,7 @@ export function usePlasmidViewer() {
     const handleFeatureClick = (feature: Feature) => {
         setSelectedRegion({
             start: feature.start,
-            end: feature.end
+            end: feature.end - 1
         });
     };
 

@@ -24,13 +24,13 @@ export class GenBankParser implements SequenceParser {
             complement = true;
             const matches = location.match(/\d+/g);
             if (matches) {
-                start = parseInt(matches[0]);
+                start = parseInt(matches[0]) - 1;
                 end = parseInt(matches[1] || matches[0]);
             }
         } else {
             const matches = location.match(/\d+/g);
             if (matches) {
-                start = parseInt(matches[0]);
+                start = parseInt(matches[0]) - 1;
                 end = parseInt(matches[1] || matches[0]);
             }
         }
@@ -100,6 +100,8 @@ export class GenBankParser implements SequenceParser {
                         currentFeature.label = qualifier.split('=')[1].replace(/["']/g, '');
                     } else if (!currentFeature.label && qualifier.startsWith('/note=')) {
                         currentFeature.label = qualifier.split('=')[1].replace(/["']/g, '');
+                    } else if (qualifier.startsWith('/translation=')) {
+                        currentFeature.translation = qualifier.split('=')[1].replace(/["']/g, '');
                     }
                 }
             }
