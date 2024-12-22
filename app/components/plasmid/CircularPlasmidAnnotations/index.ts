@@ -1,3 +1,3 @@
 export * from './CircularPlasmidLabelAnnotation';
 export * from './CircularPlasmidTranslationAnnotation';
-export * from './utils'; 
+export * from './utils';

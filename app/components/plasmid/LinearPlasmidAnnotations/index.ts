@@ -1,2 +1,2 @@
 export * from './LinearPlasmidLabelAnnotation';
-export * from './LinearPlasmidTranslationAnnotation'; 
+export * from './LinearPlasmidTranslationAnnotation';
