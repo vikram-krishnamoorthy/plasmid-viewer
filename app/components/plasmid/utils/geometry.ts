@@ -58,19 +58,32 @@ export class CircularGeometry implements ViewerGeometry {
     }
 
     createSelectionPath(start: number, end: number, radius: number, length: number): string {
+        // Convert positions to angles (in radians)
         const startAngle = coordsToAngle(start, length);
-        const endAngle = coordsToAngle(end, length);
+        let endAngle = coordsToAngle(end, length);
 
-        let angleDiff = endAngle - startAngle;
-        if (angleDiff < 0) angleDiff += TWO_PI;
-
-        const largeArc = angleDiff > Math.PI ? 1 : 0;
-        const sweep = 1;
+        // If selection crosses origin counterclockwise
+        if (end < start) {
+            endAngle += TWO_PI;
+        }
 
         const startPoint = angleToCoords(startAngle, radius);
-        const endPoint = angleToCoords(endAngle, radius);
+        const endPoint = angleToCoords(endAngle % TWO_PI, radius);
 
-        return `M ${startPoint.x} ${startPoint.y} A ${radius} ${radius} 0 ${largeArc} ${sweep} ${endPoint.x} ${endPoint.y}`;
+        // Calculate the actual angle difference
+        const angleDiff = endAngle - startAngle;
+        const largeArc = Math.abs(angleDiff) > Math.PI ? 1 : 0;
+        
+        // For SVG arc, we need:
+        // 1. Both radii (rx and ry) equal for a perfect circle
+        // 2. No rotation (0 after the radii)
+        // 3. Proper large-arc and sweep flags
+        return `M ${startPoint.x} ${startPoint.y} 
+                A ${radius} ${radius} 
+                0 
+                ${largeArc} 
+                1 
+                ${endPoint.x} ${endPoint.y}`;
     }
 }
 

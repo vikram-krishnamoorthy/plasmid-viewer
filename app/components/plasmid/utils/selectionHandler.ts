@@ -84,17 +84,32 @@ export class CircularSelectionHandler implements SelectionHandler {
         if (this.isSelectingTranslation && this.initialFeature) {
             const start = Math.min(this.dragStart, position);
             const end = Math.max(this.dragStart, position);
-
             const snapped = this.snapToCodonBoundaries(start, end, this.initialFeature);
             return snapped;
         }
 
-        const start = Math.min(this.dragStart, position);
-        const end = Math.max(this.dragStart, position);
+        position = ((position % this.plasmidLength) + this.plasmidLength) % this.plasmidLength;
+        const start = this.dragStart % this.plasmidLength;
 
-        this.currentSelection = { start, end };
-        this.onSelectionChange(this.currentSelection);
-        return this.currentSelection;
+        const clockwiseDistance = position >= start
+            ? position - start
+            : this.plasmidLength - start + position;
+            
+        const counterclockwiseDistance = position >= start
+            ? this.plasmidLength - position + start
+            : start - position;
+
+        if (clockwiseDistance <= counterclockwiseDistance) {
+            return {
+                start,
+                end: position >= start ? position : position
+            };
+        } else {
+            return {
+                start: position,
+                end: start
+            };
+        }
     }
 
     handleSelectionEnd(): void {

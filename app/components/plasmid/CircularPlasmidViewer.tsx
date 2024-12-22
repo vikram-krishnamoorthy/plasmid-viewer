@@ -55,14 +55,9 @@ export const CircularPlasmidViewer: React.FC<CircularPlasmidViewerProps> = ({
     const getSelectionPath = (): string => {
         if (!selectedRegion) return '';
         
-        // For selections that cross the origin, we need to adjust the end position
-        const adjustedEnd = selectedRegion.end < selectedRegion.start 
-            ? selectedRegion.end 
-            : selectedRegion.end;
-
         return geometry.createSelectionPath(
             selectedRegion.start,
-            adjustedEnd,
+            selectedRegion.end,
             PLASMID_CONSTANTS.BACKBONE_RADIUS,
             plasmidLength
         );
