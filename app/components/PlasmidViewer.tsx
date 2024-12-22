@@ -11,6 +11,7 @@ import { PLASMID_CONSTANTS } from './plasmid/utils/constants';
 import { usePlasmidViewer } from '../hooks/usePlasmidViewer';
 import { LinearPlasmidViewer, LinearPlasmidViewerRef } from './plasmid/LinearPlasmidViewer';
 import type { Feature } from './plasmid/types';
+import { FeatureFilterBar } from './plasmid/FeatureFilterBar';
 
 const PlasmidViewer: React.FC = () => {
     const {
@@ -113,10 +114,23 @@ const PlasmidViewer: React.FC = () => {
         // No scrolling!
     };
 
+    // Add this handler for the FeatureFilterBar
+    const handleToggleFeature = (type: string) => {
+        setVisibleFeatureTypes(types => {
+            const newTypes = new Set(types);
+            if (newTypes.has(type)) {
+                newTypes.delete(type);
+            } else {
+                newTypes.add(type);
+            }
+            return newTypes;
+        });
+    };
+
     return (
         <div className="w-full h-screen p-6 flex flex-col">
-            {/* Title Section - Updated with "Viewing Plasmid:" prefix */}
-            <div className="mb-4">
+            {/* Title Section */}
+            <div className="mb-6">
                 <h1 className="text-2xl font-bold">
                     {plasmidLength > 0 ? (
                         <>Viewing Plasmid: {plasmidDefinition || plasmidName}</>
@@ -126,31 +140,27 @@ const PlasmidViewer: React.FC = () => {
                 </h1>
             </div>
 
-            {/* Features Toggle Section */}
-            <div className="mb-4 border-y py-4">
-                <div className="font-semibold mb-2">Features:</div>
-                <div className="flex flex-wrap gap-4">
-                    {featureTypes.map(type => (
-                        <div key={type} className="flex items-center space-x-2">
-                            <Checkbox
-                                id={`feature-${type}`}
-                                checked={visibleFeatureTypes.has(type)}
-                                onCheckedChange={(checked) => handleCheckboxChange(checked, type)}
-                                style={{
-                                    '--checkbox-color': colorManager.getFeatureColor(type)
-                                } as React.CSSProperties}
-                                className="data-[state=checked]:bg-[var(--checkbox-color)] data-[state=checked]:border-[var(--checkbox-color)]"
-                            />
-                            <label
-                                htmlFor={`feature-${type}`}
-                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                                {type}
-                            </label>
+            {/* Feature Filter Bar - Always show container */}
+            <div className="mb-6">
+                {featureTypes.length > 0 ? (
+                    <FeatureFilterBar
+                        featureTypes={featureTypes}
+                        visibleFeatureTypes={visibleFeatureTypes}
+                        colorManager={colorManager}
+                        onToggleFeature={handleToggleFeature}
+                    />
+                ) : (
+                    <div className="bg-gray-50 py-3">
+                        <div className="flex items-center gap-4">
+                            <span className="font-semibold pl-4 text-gray-400">View/Hide Features:</span>
+                            <span className="text-sm text-gray-400">Upload a file to view features</span>
                         </div>
-                    ))}
-                </div>
+                    </div>
+                )}
             </div>
+
+            {/* Divider */}
+            <div className="border-b mb-6" />
 
             {/* Main Content Section */}
             <div className="flex gap-6 flex-1 min-h-0">

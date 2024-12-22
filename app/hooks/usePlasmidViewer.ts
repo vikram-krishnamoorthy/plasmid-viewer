@@ -51,7 +51,7 @@ export function usePlasmidViewer() {
             color: colorMap[feature.type] || '#BDC3C7'
         })));
         setDnaSequence(result.sequence);
-        
+
         // Set visible feature types, excluding 'source' by default
         const newFeatureTypes = new Set(
             _.uniq(result.features.map(f => f.type))
