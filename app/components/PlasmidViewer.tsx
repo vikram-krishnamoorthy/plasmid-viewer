@@ -3,16 +3,12 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { PlasmidBackbone } from './plasmid/PlasmidBackbone';
-import { PlasmidFeature } from './plasmid/PlasmidFeature';
-import { SelectionHighlight } from './plasmid/SelectionHighlight';
-import { PlasmidInfo } from './plasmid/PlasmidInfo';
-import { PLASMID_CONSTANTS } from './plasmid/utils/constants';
 import { usePlasmidViewer } from '../hooks/usePlasmidViewer';
 import { LinearPlasmidViewer, LinearPlasmidViewerRef } from './plasmid/LinearPlasmidViewer';
 import type { Feature } from './plasmid/types';
 import { FeatureFilterBar } from './plasmid/FeatureFilterBar';
 import { LabelPosition } from './plasmid/types';
+import { CircularPlasmidViewer } from './plasmid/CircularPlasmidViewer';
 
 const PlasmidViewer: React.FC = () => {
     const {
@@ -42,8 +38,6 @@ const PlasmidViewer: React.FC = () => {
 
     const svgRef = useRef<SVGSVGElement>(null);
     const linearViewerRef = useRef<LinearPlasmidViewerRef>(null);
-    const [hoveredFeature, setHoveredFeature] = useState<string | null>(null);
-    const [hoveredFeatureDetails, setHoveredFeatureDetails] = useState<LabelPosition | undefined>(undefined);
 
     // Handle copy event
     useEffect(() => {
@@ -62,17 +56,6 @@ const PlasmidViewer: React.FC = () => {
         document.addEventListener('copy', handleCopy);
         return () => document.removeEventListener('copy', handleCopy);
     }, [selectedRegion, dnaSequence, plasmidLength, clipboardManager]);
-
-    // Draw selection arc
-    const getSelectionPath = (): string => {
-        if (!selectedRegion) return '';
-        return geometry.createSelectionPath(
-            selectedRegion.start,
-            selectedRegion.end,
-            PLASMID_CONSTANTS.BACKBONE_RADIUS,
-            plasmidLength
-        );
-    };
 
     // This handler is for the circular viewer only
     const handleCircularViewerMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
@@ -184,48 +167,21 @@ const PlasmidViewer: React.FC = () => {
                         />
                     </div>
 
-                    <div className="relative flex-1 bg-white">
-                        <svg
-                            ref={svgRef}
-                            viewBox="0 0 600 600"
-                            className="w-full h-full select-none"
-                            style={{ userSelect: 'none' }}
-                            onMouseDown={handleCircularViewerMouseDown}
-                            onMouseMove={handleMouseMove}
-                            onMouseUp={handleMouseUp}
-                            onMouseLeave={handleMouseUp}
-                        >
-                            <PlasmidBackbone plasmidLength={plasmidLength} />
-
-                            {selectedRegion && (
-                                <SelectionHighlight selectionPath={getSelectionPath()} />
-                            )}
-
-                            {labelPositioner.calculateLabelPositions(features, visibleFeatureTypes, plasmidLength)
-                                .map((labelPosition) => (
-                                    <PlasmidFeature
-                                        key={labelPosition.feature.id}
-                                        labelPosition={labelPosition}
-                                        isSelected={selectedRegion?.start === labelPosition.feature.start &&
-                                            selectedRegion?.end === labelPosition.feature.end}
-                                        onClick={() => handleCircularFeatureClick(labelPosition.feature)}
-                                        onHover={(label) => {
-                                            setHoveredFeature(label);
-                                            setHoveredFeatureDetails(label ? labelPosition : undefined);
-                                        }}
-                                    />
-                                ))}
-
-                            <PlasmidInfo
-                                name={plasmidName}
-                                length={plasmidLength}
-                                hoveredFeature={hoveredFeature}
-                                hoveredFeatureDetails={hoveredFeatureDetails}
-                                selectedRegion={selectedRegion}
-                                features={features}
-                            />
-                        </svg>
-                    </div>
+                    <CircularPlasmidViewer
+                        features={features}
+                        plasmidName={plasmidName}
+                        plasmidLength={plasmidLength}
+                        visibleFeatureTypes={visibleFeatureTypes}
+                        selectedRegion={selectedRegion}
+                        geometry={geometry}
+                        labelPositioner={labelPositioner}
+                        colorManager={colorManager}
+                        onFeatureClick={handleCircularFeatureClick}
+                        onMouseDown={handleCircularViewerMouseDown}
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseUp}
+                    />
                 </div>
 
                 {/* Right Column - Linear View */}
