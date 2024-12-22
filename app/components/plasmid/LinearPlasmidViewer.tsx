@@ -118,30 +118,6 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
 
     const visibleFeatures = features.filter((f) => visibleFeatureTypes.has(f.type));
 
-    // Add label width calculation
-    const _getLabelWidth = (feature: Feature): number => {
-      const label = feature.label || '';
-      // Approximate width based on character count (adjust CHAR_WIDTH as needed)
-      return label.length * CHAR_WIDTH;
-    };
-
-    // Update overlap detection to include labels
-    const _doFeaturesOverlap = (
-      f1: Feature,
-      f2: Feature,
-      lineStart: number,
-      lineEnd: number
-    ): boolean => {
-      // Get the visible portions of each feature in this line
-      const f1VisibleStart = Math.max(lineStart, f1.start);
-      const f1VisibleEnd = Math.min(lineEnd, f1.end < f1.start ? f1.end + plasmidLength : f1.end);
-      const f2VisibleStart = Math.max(lineStart, f2.start);
-      const f2VisibleEnd = Math.min(lineEnd, f2.end < f2.start ? f2.end + plasmidLength : f2.end);
-
-      // Check if the visible portions overlap
-      return f1VisibleStart < f2VisibleEnd && f2VisibleStart < f1VisibleEnd;
-    };
-
     // Convert SVG coordinates to sequence position
     const coordsToSequencePos = (mouseX: number, mouseY: number): number | null => {
       const lineIndex = Math.floor((mouseY - MARGIN_TOP) / TOTAL_LINE_HEIGHT);
@@ -231,13 +207,6 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
         return position >= start || position <= end;
       }
     };
-
-    // Add these constants near the top of the file
-    const _LABEL_SPACING = 15; // Minimum vertical spacing between labels
-    const _LABEL_OFFSET = 5; // Vertical offset from feature
-    const _LINE_HEIGHT = 100; // Total height of each line
-    const _SEQUENCE_Y = 80; // Y position of the sequence line
-    const _HIGHLIGHT_PADDING = 10; // Padding above and below the sequence line
 
     // Modify these constants for better highlight padding
     const SELECTION_PADDING_TOP = 10; // Padding above the topmost feature
@@ -453,4 +422,5 @@ export const LinearPlasmidViewer = forwardRef<LinearPlasmidViewerRef, LinearPlas
     );
   }
 );
+
 LinearPlasmidViewer.displayName = 'LinearPlasmidViewer';

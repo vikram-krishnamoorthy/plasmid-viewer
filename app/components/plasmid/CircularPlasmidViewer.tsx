@@ -27,7 +27,7 @@ interface CircularPlasmidViewerProps {
   onMouseLeave: () => void;
 }
 
-const MAX_FEATURE_TRACKS = 3;
+const MAX_FEATURE_TRACKS = 5;
 
 export const CircularPlasmidViewer: React.FC<CircularPlasmidViewerProps> = ({
   features,
@@ -85,7 +85,7 @@ export const CircularPlasmidViewer: React.FC<CircularPlasmidViewerProps> = ({
 
         {visibleFeatures.map((feature) => {
           const track = trackAssignments.get(feature.id) ?? 0;
-          const radius = calculateFeatureRadius(track, MAX_FEATURE_TRACKS);
+          const radius = calculateFeatureRadius(track);
           const isSelected =
             selectedRegion?.start === feature.start && selectedRegion?.end === feature.end;
 
@@ -96,7 +96,7 @@ export const CircularPlasmidViewer: React.FC<CircularPlasmidViewerProps> = ({
                 feature={feature}
                 radius={radius}
                 isSelected={isSelected}
-                onClick={(_e) => onFeatureClick(feature)}
+                onClick={(_) => onFeatureClick(feature)}
                 onHover={(label) => {
                   setHoveredFeature(label);
                   setHoveredFeatureDetails({
@@ -126,7 +126,7 @@ export const CircularPlasmidViewer: React.FC<CircularPlasmidViewerProps> = ({
               radius={radius}
               isSelected={isSelected}
               color={colorManager.getFeatureColor(feature.type)}
-              onClick={(_e) => onFeatureClick(feature)}
+              onClick={(_) => onFeatureClick(feature)}
               onHover={(label) => {
                 setHoveredFeature(label);
                 setHoveredFeatureDetails({

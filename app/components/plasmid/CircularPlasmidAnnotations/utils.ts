@@ -4,7 +4,7 @@ import { PLASMID_CONSTANTS } from '../utils/constants';
 const TRACK_SPACING = 15; // Space between tracks
 const INITIAL_RADIUS_OFFSET = 30; // Distance from backbone to first track
 
-export const calculateFeatureRadius = (track: number, _maxTracks: number): number => {
+export const calculateFeatureRadius = (track: number): number => {
   // Start from an offset inside the backbone radius and go inward
   return PLASMID_CONSTANTS.BACKBONE_RADIUS - INITIAL_RADIUS_OFFSET - track * TRACK_SPACING;
 };
@@ -43,7 +43,7 @@ export const assignCircularTracks = (
   features: Feature[],
   visibleFeatureTypes: Set<string>,
   plasmidLength: number,
-  _maxTracks: number
+  maxTracks: number
 ): Map<string, number> => {
   const trackAssignments = new Map<string, number>();
 
@@ -57,7 +57,7 @@ export const assignCircularTracks = (
   let hasOverlaps = true;
   let currentTrack = 0;
 
-  while (hasOverlaps && currentTrack < _maxTracks) {
+  while (hasOverlaps && currentTrack < maxTracks) {
     hasOverlaps = false;
 
     const featuresInTrack = features.filter((f) => trackAssignments.get(f.id) === currentTrack);

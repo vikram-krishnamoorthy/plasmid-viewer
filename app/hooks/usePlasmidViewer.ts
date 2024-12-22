@@ -3,7 +3,6 @@ import _ from 'lodash';
 import type { Feature, SelectedRegion } from '../components/plasmid/types';
 import { PLASMID_CONSTANTS } from '../components/plasmid/utils/constants';
 import { CircularGeometry } from '../components/plasmid/utils/geometry';
-import { CircularLabelPositioner } from '../components/plasmid/utils/labelPositioning';
 import { GenBankParser } from '../components/plasmid/utils/genBankParser';
 import { CircularSelectionHandler } from '../components/plasmid/utils/selectionHandler';
 import { FeatureColorManager } from '../components/plasmid/utils/featureColorManager';
@@ -29,7 +28,6 @@ export function usePlasmidViewer() {
 
   // Services
   const geometry = useMemo(() => new CircularGeometry(PLASMID_CONSTANTS), []);
-  const labelPositioner = useMemo(() => new CircularLabelPositioner(), []);
   const parser = useMemo(() => new GenBankParser(), []);
   const colorManager = useMemo(() => new FeatureColorManager(), []);
   const selectionHandler = useMemo(
@@ -84,37 +82,10 @@ export function usePlasmidViewer() {
     }
   };
 
-  const handleTextInput = (content: string) => {
-    try {
-      setSequence(content);
-      const result = inputHandler.handleTextInput(content);
-      updatePlasmidData(result);
-    } catch (error) {
-      console.error('Error parsing input:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to parse GenBank format. Please check the input.',
-        variant: 'destructive',
-      });
-    }
-  };
-
   const handleFeatureClick = (feature: Feature) => {
     setSelectedRegion({
       start: feature.start,
       end: feature.end - 1,
-    });
-  };
-
-  const handleCheckboxChange = (checked: boolean | 'indeterminate', type: string) => {
-    setVisibleFeatureTypes((types) => {
-      const newTypes = new Set(types);
-      if (checked === true) {
-        newTypes.add(type);
-      } else {
-        newTypes.delete(type);
-      }
-      return newTypes;
     });
   };
 
@@ -134,18 +105,6 @@ export function usePlasmidViewer() {
     selectionHandler.handleSelectionEnd();
   };
 
-  const handleCopy = () => {
-    if (selectedRegion && dnaSequence) {
-      clipboardManager.copySequence(
-        dnaSequence,
-        selectedRegion.start,
-        selectedRegion.end,
-        plasmidLength,
-        features
-      );
-    }
-  };
-
   return {
     // State
     sequence,
@@ -161,19 +120,15 @@ export function usePlasmidViewer() {
     featureTypes,
     // Services
     geometry,
-    labelPositioner,
     selectionHandler,
     clipboardManager,
     colorManager,
     // Event handlers
     handleFileUpload,
-    handleTextInput,
     handleFeatureClick,
-    handleCheckboxChange,
     handleLinearViewerMouseDown,
     handleLinearViewerMouseMove,
     handleMouseUp,
     plasmidDefinition,
-    handleCopy,
   };
 }
