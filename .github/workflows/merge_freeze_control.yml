@@ -1,0 +1,35 @@
+name: Merge Freeze Control
+
+on:
+  workflow_dispatch:
+    inputs:
+      freeze:
+        description: 'Freeze merging (true/false)'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  set_freeze:
+    runs-on: ubuntu-latest
+    environment: merge_control
+    permissions:
+      actions: write
+      contents: write
+    
+    steps:
+      - name: Update freeze status
+        run: |
+          echo "MERGE_FREEZE=${{ inputs.freeze }}" >> $GITHUB_ENV
+          
+      - name: Trigger PR checks
+        run: |
+          # Get all open PRs
+          PR_NUMBERS=$(gh pr list --json number --jq '.[].number')
+          
+          # Trigger check reruns for each PR
+          for PR in $PR_NUMBERS; do
+            gh workflow run pr_freeze_check.yml -r main -F pr_number=$PR
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
