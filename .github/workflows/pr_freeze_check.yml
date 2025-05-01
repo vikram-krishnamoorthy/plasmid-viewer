@@ -1,0 +1,34 @@
+name: PR Freeze Check
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  workflow_call:
+    inputs:
+      pr_number:
+        required: false
+        type: number
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to check'
+        required: true
+        type: number
+
+jobs:
+  check_freeze:
+    runs-on: ubuntu-latest
+    environment: merge_control
+    
+    steps:
+      - name: Check merge freeze status
+        id: freeze_check
+        run: |
+          if [[ "${{ env.MERGE_FREEZE }}" == "true" ]]; then
+            echo "Merge freeze is active - blocking PR"
+            exit 1
+          else
+            echo "No merge freeze active - PR can proceed"
+            exit 0
+          fi
+
